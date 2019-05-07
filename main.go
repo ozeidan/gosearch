@@ -1,21 +1,25 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"time"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+
+	"github.com/karrick/godirwalk"
+	"github.com/ozeidan/gosearch/request"
 )
 
-var dirCount = 0
-var filterError error = errors.New("directory filtered")
-
 func main() {
-	start := time.Now()
-	elapsed := time.Since(start)
-	fmt.Println("elapsed time:", elapsed)
-	fmt.Println("counted", dirCount, "directories")
-	// err := fanotifyInit()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+	fileChangeChan := make(chan fileChange, 100)
+	requestChan := make(chan request.Request)
+	go fanotifyInit(fileChangeChan)
+	go start(fileChangeChan, requestChan)
+	go request.ListenAndServe(requestChan)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	for _ = range c {
+		break
+	}
 }

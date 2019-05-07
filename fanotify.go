@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"unsafe"
@@ -47,25 +46,34 @@ type FanotifyEventFid struct {
 type FanotifyEventInfoFid struct {
 	Hdr      FanotifyInfoHeader
 	EventFid FanotifyEventFid
-	/*
-	 * Following is an opaque struct file_handle that can be passed as
-	 * an argument to open_by_handle_at(2).
-	 */
-	// unsigned char handle[0];
 }
 
-func fanotifyInit() error {
-	fd, err := unix.FanotifyInit(FAN_REPORT_FID, 0)
+const (
+	Creation = iota
+	Deletion
+)
+
+type fileChange struct {
+	folderPath string
+	changeType int
+}
+
+func fanotifyInit(changeReceiver chan<- fileChange) {
+
+	fan, err := unix.FanotifyInit(FAN_REPORT_FID, 0)
 	if err != nil {
-		return err
+		fmt.Println(err)
+		panic("could not call fanotifyinit")
 	}
-	err = unix.FanotifyMark(fd, MARK_FLAGS, MARK_MASK, AT_FDCWD, "")
+
+	err = unix.FanotifyMark(fan, MARK_FLAGS, MARK_MASK, AT_FDCWD, "/")
 
 	if err != nil {
-		return err
+		fmt.Println(err)
+		panic("could not call fanotifymark")
 	}
 
-	f := os.NewFile(uintptr(fd), "")
+	f := os.NewFile(uintptr(fan), "")
 	r := bufio.NewReader(f)
 
 	metaBuff := make([]byte, 24)
@@ -73,11 +81,11 @@ func fanotifyInit() error {
 	for {
 		n, err := r.Read(metaBuff)
 		if err != nil {
-			return err
+			continue
 		}
 
 		if n < 0 || n > 24 {
-			return errors.New(fmt.Sprintf("read %d bytes", n))
+			continue
 		}
 
 		meta := *((*unix.FanotifyEventMetadata)(unsafe.Pointer(&metaBuff[0])))
@@ -85,11 +93,11 @@ func fanotifyInit() error {
 		infoBuff := make([]byte, bytesLeft)
 		n, err = r.Read(infoBuff)
 		if err != nil {
-			return err
+			continue
 		}
 
 		if n < 0 || n > bytesLeft {
-			return errors.New(fmt.Sprintf("read %d bytes", n))
+			continue
 		}
 
 		info := *((*FanotifyEventInfoFid)(unsafe.Pointer(&infoBuff[0])))
@@ -103,79 +111,86 @@ func fanotifyInit() error {
 		handleBytes := infoBuff[handleStart : handleStart+handleLen]
 		unixFileHandle := unix.NewFileHandle(info.EventFid.FileHandle.HandleType, handleBytes)
 
-		// fmt.Printf("info: %+v\n", info)
-		fd, err = unix.OpenByHandleAt(AT_FDCWD, unixFileHandle, 0)
+		fd, err := unix.OpenByHandleAt(AT_FDCWD, unixFileHandle, 0)
 		if err != nil {
-			// fmt.Println("openbyhandleat")
-			fmt.Println(err)
+			fmt.Println("could not call OpenByHandleAt:", err)
 			continue
-			// return err
 		}
 
 		sym := fmt.Sprintf("/proc/self/fd/%d", fd)
-		name := make([]byte, 200)
-		n, err = unix.Readlink(sym, name)
+		path := make([]byte, 200)
+		pathLength, err := unix.Readlink(sym, path)
 		if err != nil {
-			fmt.Println("unix.readlink")
-			return err
+			fmt.Println("could not call Readlink:", err)
+			continue
+		}
+		if isFiltered(string(path)) {
+			continue
 		}
 
-		fmt.Println(string(name))
-		fmt.Printf("meta: %+v\n", meta)
-		fmt.Printf("info: %+v\n", info)
-		fmt.Printf("metaBuff: %v\n", metaBuff)
-		fmt.Printf("infoBuff: %v\n", infoBuff)
-		// fmt.Printf("cutOff: %v\n", metaBuff[handleStart+handleLen:])
+		// if meta.Mask&unix.IN_ACCESS > 0 {
+		// 	fmt.Println("FAN_ACCESS")
+		// }
+		// if meta.Mask&unix.IN_ATTRIB > 0 {
+		// 	fmt.Println("FAN_ATTRIB")
+		// }
+		// if meta.Mask&unix.IN_CLOSE_NOWRITE > 0 {
+		// 	fmt.Println("FAN_CLOSE_NOWRITE")
+		// }
+		// if meta.Mask&unix.IN_CLOSE_WRITE > 0 {
+		// 	fmt.Println("FAN_CLOSE_WRITE")
+		// }
+		// if meta.Mask&unix.IN_CREATE > 0 {
+		// 	fmt.Println("FAN_CREATE")
+		// }
+		// if meta.Mask&unix.IN_DELETE > 0 {
+		// 	fmt.Println("FAN_DELETE")
+		// }
+		// if meta.Mask&unix.IN_DELETE_SELF > 0 {
+		// 	fmt.Println("FAN_DELETE_SELF")
+		// }
+		// if meta.Mask&unix.IN_IGNORED > 0 {
+		// 	fmt.Println("FAN_IGNORED")
+		// }
+		// if meta.Mask&unix.IN_ISDIR > 0 {
+		// 	fmt.Println("FAN_ISDIR")
+		// }
+		// if meta.Mask&unix.IN_MODIFY > 0 {
+		// 	fmt.Println("FAN_MODIFY")
+		// }
+		// if meta.Mask&unix.IN_MOVE_SELF > 0 {
+		// 	fmt.Println("FAN_MOVE_SELF")
+		// }
+		// if meta.Mask&unix.IN_MOVED_FROM > 0 {
+		// 	fmt.Println("FAN_MOVED_FROM")
+		// }
+		// if meta.Mask&unix.IN_MOVED_TO > 0 {
+		// 	fmt.Println("FAN_MOVED_TO")
+		// }
+		// if meta.Mask&unix.IN_OPEN > 0 {
+		// 	fmt.Println("FAN_OPEN")
+		// }
+		// if meta.Mask&unix.IN_Q_OVERFLOW > 0 {
+		// 	fmt.Println("FAN_Q_OVERFLOW")
+		// }
+		// if meta.Mask&unix.IN_UNMOUNT > 0 {
+		// 	fmt.Println("FAN_UNMOUNT")
+		// }
 
-		if meta.Mask&unix.IN_ACCESS > 0 {
-			fmt.Println("FAN_ACCESS")
+		changeType := 0
+		if meta.Mask&unix.IN_CREATE > 0 ||
+			meta.Mask&unix.IN_MOVED_TO > 0 {
+			changeType = Creation
 		}
-		if meta.Mask&unix.IN_ATTRIB > 0 {
-			fmt.Println("FAN_ATTRIB")
+		if meta.Mask&unix.IN_DELETE > 0 ||
+			meta.Mask&unix.IN_MOVED_FROM > 0 {
+			changeType = Deletion
 		}
-		if meta.Mask&unix.IN_CLOSE_NOWRITE > 0 {
-			fmt.Println("FAN_CLOSE_NOWRITE")
+
+		change := fileChange{
+			string(path[:pathLength]),
+			changeType,
 		}
-		if meta.Mask&unix.IN_CLOSE_WRITE > 0 {
-			fmt.Println("FAN_CLOSE_WRITE")
-		}
-		if meta.Mask&unix.IN_CREATE > 0 {
-			fmt.Println("FAN_CREATE")
-		}
-		if meta.Mask&unix.IN_DELETE > 0 {
-			fmt.Println("FAN_DELETE")
-		}
-		if meta.Mask&unix.IN_DELETE_SELF > 0 {
-			fmt.Println("FAN_DELETE_SELF")
-		}
-		if meta.Mask&unix.IN_IGNORED > 0 {
-			fmt.Println("FAN_IGNORED")
-		}
-		if meta.Mask&unix.IN_ISDIR > 0 {
-			fmt.Println("FAN_ISDIR")
-		}
-		if meta.Mask&unix.IN_MODIFY > 0 {
-			fmt.Println("FAN_MODIFY")
-		}
-		if meta.Mask&unix.IN_MOVE_SELF > 0 {
-			fmt.Println("FAN_MOVE_SELF")
-		}
-		if meta.Mask&unix.IN_MOVED_FROM > 0 {
-			fmt.Println("FAN_MOVED_FROM")
-		}
-		if meta.Mask&unix.IN_MOVED_TO > 0 {
-			fmt.Println("FAN_MOVED_TO")
-		}
-		if meta.Mask&unix.IN_OPEN > 0 {
-			fmt.Println("FAN_OPEN")
-		}
-		if meta.Mask&unix.IN_Q_OVERFLOW > 0 {
-			fmt.Println("FAN_Q_OVERFLOW")
-		}
-		if meta.Mask&unix.IN_UNMOUNT > 0 {
-			fmt.Println("FAN_UNMOUNT")
-		}
+		changeReceiver <- change
 	}
-
-	return nil
 }
