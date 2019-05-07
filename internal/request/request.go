@@ -7,26 +7,38 @@ import (
 	"os"
 )
 
-const SockAddr = "/tmp/gosearch.sock"
+const sockAddr = "/tmp/gosearch.sock"
 
 const (
+	// PrefixSearch denotes searching for prefixes of file/directory names
 	PrefixSearch = iota
+	// FuzzySearch does a fuzzy search on file/directory names
 	FuzzySearch
+	// IndexRefresh refreshes the whole database over the files
 	IndexRefresh
 )
 
+// Request holds the details of a request
+// that was received over the unix domain socket
 type Request struct {
-	Action          int         `json:"action"`
-	Query           string      `json:"data"`
+	// Action describes the requested action
+	Action int `json:"action"`
+	// Query holds the string which is searched for
+	Query string `json:"data"`
+	// ResponseChannel is the channel
+	// on which the database will send back the results
 	ResponseChannel chan string `json:"-"`
 }
 
+// ListenAndServe starts listening for and accepting requests
+// on a unix domain socket.
+// requestReceiver is used for passing on the requests to the caller
 func ListenAndServe(requestReceiver chan<- Request) {
-	if err := os.RemoveAll(SockAddr); err != nil {
+	if err := os.RemoveAll(sockAddr); err != nil {
 		log.Fatal(err)
 	}
 
-	l, err := net.Listen("unix", SockAddr)
+	l, err := net.Listen("unix", sockAddr)
 	if err != nil {
 		log.Fatal("listen error:", err)
 	}

@@ -13,6 +13,9 @@ import (
 	"github.com/ozeidan/gosearch/pkg/tree"
 )
 
+// Start starts the indexing and listens for file changes and requests
+// changeSender is used to get file change messages from the caller
+// requestSender is used to get request messages from the caller
 func Start(changeSender <-chan fanotify.FileChange,
 	requestSender <-chan request.Request) {
 	initialIndex()
@@ -28,10 +31,10 @@ func Start(changeSender <-chan fanotify.FileChange,
 	}
 }
 
-var filterError error = errors.New("directory filtered")
+var errFilter = errors.New("directory filtered")
 
 var indexTrie *trie.Trie = trie.New()
-var fileTree *tree.TreeNode = tree.New()
+var fileTree *tree.Node = tree.New()
 
 type indexedFile struct {
 	path  string
@@ -90,7 +93,7 @@ func sliceDifference(sliceA, sliceB []string) ([]string, []string) {
 	mapA := sliceToSet(sliceA)
 	mapB := sliceToSet(sliceB)
 
-	for name, _ := range mapA {
+	for name := range mapA {
 		if _, ok := mapB[name]; ok {
 			delete(mapA, name)
 			delete(mapB, name)
@@ -111,7 +114,7 @@ func sliceToSet(slice []string) map[string]bool {
 func setToSlice(set map[string]bool) []string {
 	createSlice := make([]string, 0, len(set))
 
-	for key, _ := range set {
+	for key := range set {
 		createSlice = append(createSlice, key)
 	}
 
@@ -149,7 +152,7 @@ func addToIndexRecursively(path string) {
 	godirwalk.Walk(path, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			if config.IsPathFiltered(osPathname) {
-				return filterError
+				return errFilter
 			}
 
 			name := de.Name()
@@ -162,7 +165,7 @@ func addToIndexRecursively(path string) {
 		},
 		Unsorted: true,
 		ErrorCallback: func(_ string, err error) godirwalk.ErrorAction {
-			if err == filterError {
+			if err == errFilter {
 				return godirwalk.SkipNode
 			}
 			// fmt.Println(err)

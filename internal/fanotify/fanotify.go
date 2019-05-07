@@ -11,21 +11,21 @@ import (
 )
 
 const (
-	FAN_REPORT_FID      = 0x00000200
-	FAN_MARK_ADD        = 0x00000001
-	FAN_MARK_FILESYSTEM = 0x00000100
-	FAN_ONDIR           = 0x40000000 /* event occurred against dir */
-	FAN_MOVED_FROM      = 0x00000040 /* File was moved from X */
-	FAN_MOVED_TO        = 0x00000080 /* File was moved to Y */
-	FAN_CREATE          = 0x00000100 /* Subfile was created */
-	FAN_DELETE          = 0x00000200 /* Subfile was deleted */
-	FAN_DELETE_SELF     = 0x00000400 /* Self was deleted */
-	FAN_MOVE_SELF       = 0x00000800 /* Self was moved */
-	FAN_EVENT_ON_CHILD  = 0x08000000 /* interested in child events */
-	AT_FDCWD            = -100
+	fanReportFid      = 0x00000200
+	fanMarkAdd        = 0x00000001
+	fanMarkFilesystem = 0x00000100
+	fanOndir          = 0x40000000 /* event occurred against dir */
+	fanMovedFrom      = 0x00000040 /* File was moved from X */
+	fanMovedTo        = 0x00000080 /* File was moved to Y */
+	fanCreate         = 0x00000100 /* Subfile was created */
+	fanDelete         = 0x00000200 /* Subfile was deleted */
+	fanDeleteSelf     = 0x00000400 /* Self was deleted */
+	fanMoveSelf       = 0x00000800 /* Self was moved */
+	fanEventOnChild   = 0x08000000 /* interested in child events */
+	atFDCWD           = -100
 )
-const markFlags = FAN_MARK_ADD | FAN_MARK_FILESYSTEM
-const markMask = FAN_ONDIR | FAN_MOVED_FROM | FAN_MOVED_TO | FAN_CREATE | FAN_DELETE
+const markFlags = fanMarkAdd | fanMarkFilesystem
+const markMask = fanOndir | fanMovedFrom | fanMovedTo | fanCreate | fanDelete
 
 type fanotifyInfoHeader struct {
 	infoType uint8
@@ -49,25 +49,34 @@ type fanotifyEventInfoFid struct {
 	eventFid fanotifyEventFid
 }
 
+// FileChange describes the event of changes in a directory
+// FolderPath is the path of the directory
+// Changetype is either Creation or Deletion
 type FileChange struct {
 	FolderPath string
 	ChangeType int
 }
 
 const (
+	// Creation of a file/directory
 	Creation = iota
+	// Deletion of a file/directory
 	Deletion
 )
 
-func FanotifyInit(changeReceiver chan<- FileChange) {
+// Listen starts listening for created/deleted/moved
+// files in the whole file system
+// changeReceiver is a channel that FileChange structs,
+// which describe the events, will be sent through
+func Listen(changeReceiver chan<- FileChange) {
 
-	fan, err := unix.FanotifyInit(FAN_REPORT_FID, 0)
+	fan, err := unix.FanotifyInit(fanReportFid, 0)
 	if err != nil {
 		fmt.Println(err)
 		panic("could not call fanotifyinit")
 	}
 
-	err = unix.FanotifyMark(fan, markFlags, markMask, AT_FDCWD, "/")
+	err = unix.FanotifyMark(fan, markFlags, markMask, atFDCWD, "/")
 
 	if err != nil {
 		fmt.Println(err)
@@ -112,7 +121,7 @@ func FanotifyInit(changeReceiver chan<- FileChange) {
 		handleBytes := infoBuff[handleStart : handleStart+handleLen]
 		unixFileHandle := unix.NewFileHandle(info.eventFid.fileHandle.handleType, handleBytes)
 
-		fd, err := unix.OpenByHandleAt(AT_FDCWD, unixFileHandle, 0)
+		fd, err := unix.OpenByHandleAt(atFDCWD, unixFileHandle, 0)
 		if err != nil {
 			fmt.Println("could not call OpenByHandleAt:", err)
 			continue
@@ -142,13 +151,13 @@ func FanotifyInit(changeReceiver chan<- FileChange) {
 		// 	fmt.Println("FAN_CLOSE_WRITE")
 		// }
 		// if meta.Mask&unix.IN_CREATE > 0 {
-		// 	fmt.Println("FAN_CREATE")
+		// 	fmt.Println("fanCreate")
 		// }
 		// if meta.Mask&unix.IN_DELETE > 0 {
-		// 	fmt.Println("FAN_DELETE")
+		// 	fmt.Println("fanDelete")
 		// }
 		// if meta.Mask&unix.IN_DELETE_SELF > 0 {
-		// 	fmt.Println("FAN_DELETE_SELF")
+		// 	fmt.Println("fanDelete_SELF")
 		// }
 		// if meta.Mask&unix.IN_IGNORED > 0 {
 		// 	fmt.Println("FAN_IGNORED")
@@ -160,13 +169,13 @@ func FanotifyInit(changeReceiver chan<- FileChange) {
 		// 	fmt.Println("FAN_MODIFY")
 		// }
 		// if meta.Mask&unix.IN_MOVE_SELF > 0 {
-		// 	fmt.Println("FAN_MOVE_SELF")
+		// 	fmt.Println("fanMoveSelf")
 		// }
 		// if meta.Mask&unix.IN_MOVED_FROM > 0 {
-		// 	fmt.Println("FAN_MOVED_FROM")
+		// 	fmt.Println("fanMovedFrom")
 		// }
 		// if meta.Mask&unix.IN_MOVED_TO > 0 {
-		// 	fmt.Println("FAN_MOVED_TO")
+		// 	fmt.Println("fanMovedTo")
 		// }
 		// if meta.Mask&unix.IN_OPEN > 0 {
 		// 	fmt.Println("FAN_OPEN")

@@ -5,19 +5,24 @@ import (
 	"strings"
 )
 
-type TreeNode struct {
-	children map[string]TreeNode
+// Node is a node of a directory tree
+type Node struct {
+	children map[string]Node
 }
 
-type InvalidPathErr struct {
+// ErrInvalidPath is returned when the path given to one of
+// the tree operations does not exist
+type ErrInvalidPath struct {
 	path string
 }
 
-func (err InvalidPathErr) Error() string {
+func (err ErrInvalidPath) Error() string {
 	return fmt.Sprintf("accesing invalid path: %s", err.path)
 }
 
-func (t TreeNode) GetChildren(path string) ([]string, error) {
+// GetChildren returns the directoryies/files of a directory
+// determiend by path
+func (t Node) GetChildren(path string) ([]string, error) {
 	parts := pathToParts(path)
 	current := t
 
@@ -25,7 +30,7 @@ func (t TreeNode) GetChildren(path string) ([]string, error) {
 		if child, ok := current.children[part]; ok {
 			current = child
 		} else {
-			return nil, InvalidPathErr{path}
+			return nil, ErrInvalidPath{path}
 		}
 	}
 
@@ -37,7 +42,8 @@ func (t TreeNode) GetChildren(path string) ([]string, error) {
 	return keys, nil
 }
 
-func (t *TreeNode) Add(path string) {
+// Add adds a directory to the directory tree
+func (t *Node) Add(path string) {
 	parts := pathToParts(path)
 	current := *t
 
@@ -45,36 +51,38 @@ func (t *TreeNode) Add(path string) {
 		if child, ok := current.children[part]; ok {
 			current = child
 		} else {
-			child = TreeNode{make(map[string]TreeNode, 0)}
+			child = Node{make(map[string]Node, 0)}
 			current.children[part] = child
 			current = child
 		}
 	}
 }
 
-func (t *TreeNode) DeleteAt(path string) error {
+// DeleteAt deletes a directory and its subdirectories/files from the tree
+func (t *Node) DeleteAt(path string) error {
 	parts := pathToParts(path)
 	current := *t
 	for _, part := range parts[:len(parts)-1] {
 		if child, ok := current.children[part]; ok {
 			current = child
 		} else {
-			return InvalidPathErr{path}
+			return ErrInvalidPath{path}
 		}
 	}
 
 	if _, ok := current.children[parts[len(parts)-1]]; !ok {
-		return InvalidPathErr{path}
+		return ErrInvalidPath{path}
 	}
 
 	delete(current.children, parts[len(parts)-1])
 	return nil
 }
 
-func pathToParts(path string) []string {
-	return strings.Split(path, "/")[1:]
+// New returns a new Node
+func New() *Node {
+	return &Node{make(map[string]Node, 0)}
 }
 
-func New() *TreeNode {
-	return &TreeNode{make(map[string]TreeNode, 0)}
+func pathToParts(path string) []string {
+	return strings.Split(path, "/")[1:]
 }
