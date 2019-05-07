@@ -7,7 +7,8 @@ import (
 	"os"
 )
 
-const sockAddr = "/tmp/gosearch.sock"
+// SockAddr is the path at which the unix domain socket is created
+const SockAddr = "/tmp/gosearch.sock"
 
 const (
 	// PrefixSearch denotes searching for prefixes of file/directory names
@@ -34,11 +35,11 @@ type Request struct {
 // on a unix domain socket.
 // requestReceiver is used for passing on the requests to the caller
 func ListenAndServe(requestReceiver chan<- Request) {
-	if err := os.RemoveAll(sockAddr); err != nil {
+	if err := os.RemoveAll(SockAddr); err != nil {
 		log.Fatal(err)
 	}
 
-	l, err := net.Listen("unix", sockAddr)
+	l, err := net.Listen("unix", SockAddr)
 	if err != nil {
 		log.Fatal("listen error:", err)
 	}
@@ -70,7 +71,7 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 	requestReceiver <- request
 
 	for response := range request.ResponseChannel {
-		responseBytes := []byte(response)
+		responseBytes := []byte(response + "\n")
 		n, err := c.Write(responseBytes)
 		if n != len(responseBytes) {
 			log.Printf("wrote %d byte, expected to write %d", n, len(responseBytes))
