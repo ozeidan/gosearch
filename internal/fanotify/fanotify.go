@@ -1,4 +1,4 @@
-package main
+package fanotify
 
 import (
 	"bufio"
@@ -6,6 +6,7 @@ import (
 	"os"
 	"unsafe"
 
+	"github.com/ozeidan/gosearch/internal/config"
 	"golang.org/x/sys/unix"
 )
 
@@ -23,29 +24,34 @@ const (
 	FAN_EVENT_ON_CHILD  = 0x08000000 /* interested in child events */
 	AT_FDCWD            = -100
 )
-const MARK_FLAGS = FAN_MARK_ADD | FAN_MARK_FILESYSTEM
-const MARK_MASK = FAN_ONDIR | FAN_MOVED_FROM | FAN_MOVED_TO | FAN_CREATE | FAN_DELETE
+const markFlags = FAN_MARK_ADD | FAN_MARK_FILESYSTEM
+const markMask = FAN_ONDIR | FAN_MOVED_FROM | FAN_MOVED_TO | FAN_CREATE | FAN_DELETE
 
-type FanotifyInfoHeader struct {
-	InfoType uint8
-	Pad      uint8
+type fanotifyInfoHeader struct {
+	infoType uint8
+	pad      uint8
 	Len      uint16
 }
 
-type FileHandle struct {
-	HandleBytes uint32
-	HandleType  int32
+type fileHandle struct {
+	handleBytes uint32
+	handleType  int32
 	// file indentiefier of arbitrary length
 }
 
-type FanotifyEventFid struct {
-	KernelFsidT [2]int32
-	FileHandle  FileHandle
+type fanotifyEventFid struct {
+	kernelFsidT [2]int32
+	fileHandle  fileHandle
 }
 
-type FanotifyEventInfoFid struct {
-	Hdr      FanotifyInfoHeader
-	EventFid FanotifyEventFid
+type fanotifyEventInfoFid struct {
+	hdr      fanotifyInfoHeader
+	eventFid fanotifyEventFid
+}
+
+type FileChange struct {
+	FolderPath string
+	ChangeType int
 }
 
 const (
@@ -53,12 +59,7 @@ const (
 	Deletion
 )
 
-type fileChange struct {
-	folderPath string
-	changeType int
-}
-
-func fanotifyInit(changeReceiver chan<- fileChange) {
+func FanotifyInit(changeReceiver chan<- FileChange) {
 
 	fan, err := unix.FanotifyInit(FAN_REPORT_FID, 0)
 	if err != nil {
@@ -66,7 +67,7 @@ func fanotifyInit(changeReceiver chan<- fileChange) {
 		panic("could not call fanotifyinit")
 	}
 
-	err = unix.FanotifyMark(fan, MARK_FLAGS, MARK_MASK, AT_FDCWD, "/")
+	err = unix.FanotifyMark(fan, markFlags, markMask, AT_FDCWD, "/")
 
 	if err != nil {
 		fmt.Println(err)
@@ -100,16 +101,16 @@ func fanotifyInit(changeReceiver chan<- fileChange) {
 			continue
 		}
 
-		info := *((*FanotifyEventInfoFid)(unsafe.Pointer(&infoBuff[0])))
+		info := *((*fanotifyEventInfoFid)(unsafe.Pointer(&infoBuff[0])))
 
-		if info.Hdr.InfoType != 1 { // TODO: properly define constant
+		if info.hdr.infoType != 1 { // TODO: properly define constant
 			continue
 		}
 
 		handleStart := uint32(unsafe.Sizeof(info))
-		handleLen := info.EventFid.FileHandle.HandleBytes
+		handleLen := info.eventFid.fileHandle.handleBytes
 		handleBytes := infoBuff[handleStart : handleStart+handleLen]
-		unixFileHandle := unix.NewFileHandle(info.EventFid.FileHandle.HandleType, handleBytes)
+		unixFileHandle := unix.NewFileHandle(info.eventFid.fileHandle.handleType, handleBytes)
 
 		fd, err := unix.OpenByHandleAt(AT_FDCWD, unixFileHandle, 0)
 		if err != nil {
@@ -124,7 +125,7 @@ func fanotifyInit(changeReceiver chan<- fileChange) {
 			fmt.Println("could not call Readlink:", err)
 			continue
 		}
-		if isFiltered(string(path)) {
+		if config.IsPathFiltered(string(path)) {
 			continue
 		}
 
@@ -187,7 +188,7 @@ func fanotifyInit(changeReceiver chan<- fileChange) {
 			changeType = Deletion
 		}
 
-		change := fileChange{
+		change := FileChange{
 			string(path[:pathLength]),
 			changeType,
 		}

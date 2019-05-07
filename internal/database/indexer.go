@@ -1,18 +1,19 @@
-package main
+package database
 
 import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/derekparker/trie"
 	"github.com/karrick/godirwalk"
-	"github.com/ozeidan/gosearch/request"
-	"github.com/ozeidan/gosearch/tree"
+	"github.com/ozeidan/gosearch/internal/config"
+	"github.com/ozeidan/gosearch/internal/fanotify"
+	"github.com/ozeidan/gosearch/internal/request"
+	"github.com/ozeidan/gosearch/pkg/tree"
 )
 
-func start(changeSender <-chan fileChange,
+func Start(changeSender <-chan fanotify.FileChange,
 	requestSender <-chan request.Request) {
 	initialIndex()
 
@@ -20,7 +21,7 @@ func start(changeSender <-chan fileChange,
 		select {
 		case change := <-changeSender:
 			fmt.Printf("received change: %+v\n", change)
-			refreshDirectory(change.folderPath)
+			refreshDirectory(change.FolderPath)
 		case req := <-requestSender:
 			queryIndex(req)
 		}
@@ -28,7 +29,6 @@ func start(changeSender <-chan fileChange,
 }
 
 var filterError error = errors.New("directory filtered")
-var filterStrings []string = []string{"/proc", "/home/omar/.cache", "/var/cache"}
 
 var indexTrie *trie.Trie = trie.New()
 var fileTree *tree.TreeNode = tree.New()
@@ -71,7 +71,7 @@ func refreshDirectory(path string) {
 	for _, name := range createdNames {
 		dirent := nameDirents[name]
 		pathName := filepath.Join(path, name)
-		if isFiltered(pathName) {
+		if config.IsPathFiltered(pathName) {
 			continue
 		}
 		// fmt.Println("adding", pathName, "to index")
@@ -148,7 +148,7 @@ func deleteFromIndex(path, name string) {
 func addToIndexRecursively(path string) {
 	godirwalk.Walk(path, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
-			if isFiltered(osPathname) {
+			if config.IsPathFiltered(osPathname) {
 				return filterError
 			}
 
@@ -169,16 +169,6 @@ func addToIndexRecursively(path string) {
 			return godirwalk.SkipNode
 		},
 	})
-}
-
-func isFiltered(path string) bool {
-	for _, filterString := range filterStrings {
-		if strings.HasPrefix(path, filterString) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func indexTrieAdd(name string, index indexedFile) {
