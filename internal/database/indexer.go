@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/derekparker/trie"
 	"github.com/karrick/godirwalk"
+	trie "github.com/ozeidan/go-patricia/patricia"
 	"github.com/ozeidan/gosearch/internal/config"
 	"github.com/ozeidan/gosearch/internal/fanotify"
 	"github.com/ozeidan/gosearch/internal/request"
@@ -33,12 +33,11 @@ func Start(changeSender <-chan fanotify.FileChange,
 
 var errFilter = errors.New("directory filtered")
 
-var indexTrie *trie.Trie = trie.New()
+var indexTrie *trie.Trie = trie.NewTrie()
 var fileTree *tree.Node = tree.New()
 
 type indexedFile struct {
-	path  string
-	isDir bool
+	pathNode *tree.Node
 }
 
 func initialIndex() {
@@ -127,8 +126,8 @@ func addToIndex(path, name string, dirent godirwalk.Dirent) {
 	if dirent.IsDir() {
 		addToIndexRecursively(pathName)
 	} else {
-		fileTree.Add(pathName)
-		indexTrieAdd(name, indexedFile{pathName, false})
+		newNode := fileTree.Add(pathName)
+		indexTrieAdd(name, indexedFile{newNode})
 	}
 }
 
@@ -155,11 +154,10 @@ func addToIndexRecursively(path string) {
 				return errFilter
 			}
 
+			newNode := fileTree.Add(osPathname)
 			name := de.Name()
-			newFile := indexedFile{osPathname, de.IsDir()}
-
+			newFile := indexedFile{newNode}
 			indexTrieAdd(name, newFile)
-			fileTree.Add(osPathname)
 
 			return nil
 		},
@@ -175,20 +173,22 @@ func addToIndexRecursively(path string) {
 }
 
 func indexTrieAdd(name string, index indexedFile) {
-	if node, ok := indexTrie.Find(name); ok {
-		fileList := node.Meta().([]indexedFile)
+	prefix := trie.Prefix(name)
+	if item := indexTrie.Get(prefix); item != nil {
+		fileList := item.([]indexedFile)
 		fileList = append(fileList, index)
 	} else {
-		indexTrie.Add(name, []indexedFile{index})
+		indexTrie.Insert(prefix, []indexedFile{index})
 	}
 }
 
 func indexTrieDelete(name, path string) {
-	if node, ok := indexTrie.Find(name); ok {
-		fileList := node.Meta().([]indexedFile)
+	prefix := trie.Prefix(name)
+	if item := indexTrie.Get(prefix); item != nil {
+		fileList := item.([]indexedFile)
 		for i := 0; i < len(fileList); i++ {
 			index := fileList[i]
-			if index.path != path {
+			if index.pathNode.GetPath() != path {
 				continue
 			}
 
@@ -201,26 +201,26 @@ func indexTrieDelete(name, path string) {
 
 func queryIndex(req request.Request) {
 	defer close(req.ResponseChannel)
+	prefix := trie.Prefix(req.Query)
 
 	switch req.Action {
 	case request.PrefixSearch:
-		results := indexTrie.PrefixSearch(req.Query)
-		sendResults(results, req.ResponseChannel)
+		indexTrie.VisitSubtree(
+			prefix,
+			sendResults(req.ResponseChannel))
 	case request.FuzzySearch:
-		results := indexTrie.FuzzySearch(req.Query)
-		sendResults(results, req.ResponseChannel)
+		indexTrie.VisitFuzzy(
+			prefix,
+			sendResults(req.ResponseChannel))
 	}
 }
 
-func sendResults(results []string, channel chan string) {
-	for _, result := range results {
-		node, ok := indexTrie.Find(result)
-		if !ok {
-			continue
-		}
-		list := node.Meta().([]indexedFile)
+func sendResults(channel chan string) trie.VisitorFunc {
+	return func(prefix trie.Prefix, item trie.Item) error {
+		list := item.([]indexedFile)
 		for _, file := range list {
-			channel <- file.path
+			channel <- file.pathNode.GetPath()
 		}
+		return nil
 	}
 }
