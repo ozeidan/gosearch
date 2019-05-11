@@ -3,7 +3,9 @@ package database
 import (
 	"errors"
 	"fmt"
+	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/karrick/godirwalk"
 	trie "github.com/ozeidan/go-patricia/patricia"
@@ -23,7 +25,6 @@ func Start(changeSender <-chan fanotify.FileChange,
 	for {
 		select {
 		case change := <-changeSender:
-			fmt.Printf("received change: %+v\n", change)
 			refreshDirectory(change.FolderPath)
 		case req := <-requestSender:
 			queryIndex(req)
@@ -41,22 +42,32 @@ type indexedFile struct {
 }
 
 func initialIndex() {
+	log.Println("starting to create initial index")
+	start := time.Now()
 	dirname := "/"
-	addToIndexRecursively(dirname)
+	files, directories := addToIndexRecursively(dirname)
+	end := time.Now()
+	log.Println("finished creating initial index")
+	log.Printf("indexed %d files and %d directories in %f seconds",
+		files, directories, end.Sub(start).Seconds())
 }
 
 func refreshDirectory(path string) {
-	// fmt.Println("refreshing path", path)
+	log.Println("refreshing directory", path)
 	newDirents, err := godirwalk.ReadDirents(path, nil)
 	if err != nil {
-		fmt.Println(err)
-		panic("paniiiiiiiiic")
+		log.Println("warning: couldn't read directory", path, err)
 	}
 
 	newNames := make([]string, 0, len(newDirents))
 	nameDirents := make(map[string]godirwalk.Dirent, len(newNames))
 	for _, dirent := range newDirents {
-		newNames = append(newNames, dirent.Name())
+		name := dirent.Name()
+		if config.IsPathFiltered(filepath.Join(path, name)) {
+			log.Println("ignoring filtered file", name)
+			continue
+		}
+		newNames = append(newNames, name)
 		nameDirents[dirent.Name()] = *dirent
 	}
 
@@ -67,8 +78,12 @@ func refreshDirectory(path string) {
 	}
 
 	createdNames, deletedNames := sliceDifference(newNames, oldNames)
-	// fmt.Printf("diff\n +: %+v[%d]\n -: %+v[%d]\n",
-	// 	createdNames, len(createdNames), deletedNames, len(deletedNames))
+	if len(createdNames) > 0 {
+		log.Printf("indexing new files %v\n", createdNames)
+	}
+	if len(createdNames) > 0 {
+		log.Printf("removing deleted files %v\n from index", deletedNames)
+	}
 
 	for _, name := range createdNames {
 		dirent := nameDirents[name]
@@ -76,13 +91,11 @@ func refreshDirectory(path string) {
 		if config.IsPathFiltered(pathName) {
 			continue
 		}
-		// fmt.Println("adding", pathName, "to index")
 		addToIndex(path, name, dirent)
 	}
 
 	for _, name := range deletedNames {
 		pathName := filepath.Join(path, name)
-		// fmt.Println("removing", pathName, "from index")
 		deleteFromIndex(path, name)
 		fileTree.DeleteAt(pathName)
 	}
@@ -147,11 +160,19 @@ func deleteFromIndex(path, name string) {
 	}
 }
 
-func addToIndexRecursively(path string) {
+func addToIndexRecursively(path string) (uint64, uint64) {
+	var directoryCount uint64
+	var fileCount uint64
 	godirwalk.Walk(path, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			if config.IsPathFiltered(osPathname) {
 				return errFilter
+			}
+
+			if de.IsDir() {
+				directoryCount++
+			} else {
+				fileCount++
 			}
 
 			newNode := fileTree.Add(osPathname)
@@ -170,6 +191,8 @@ func addToIndexRecursively(path string) {
 			return godirwalk.SkipNode
 		},
 	})
+
+	return fileCount, directoryCount
 }
 
 func indexTrieAdd(name string, index indexedFile) {
@@ -177,6 +200,7 @@ func indexTrieAdd(name string, index indexedFile) {
 	if item := indexTrie.Get(prefix); item != nil {
 		fileList := item.([]indexedFile)
 		fileList = append(fileList, index)
+		indexTrie.Set(prefix, fileList)
 	} else {
 		indexTrie.Insert(prefix, []indexedFile{index})
 	}

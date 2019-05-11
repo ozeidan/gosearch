@@ -25,6 +25,7 @@ func SearchRequest(searchQuery string, fuzzy bool, responseChan chan<- string) {
 	c, err := net.Dial("unix", request.SockAddr)
 	if err != nil {
 		fmt.Println("could not connect to the server. is the server running?")
+		fmt.Printf("err = %+v\n", err)
 		return
 	}
 	defer c.Close()

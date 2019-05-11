@@ -3,7 +3,9 @@ package fanotify
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"unsafe"
 
 	"github.com/ozeidan/gosearch/internal/config"
@@ -69,7 +71,7 @@ const (
 // changeReceiver is a channel that FileChange structs,
 // which describe the events, will be sent through
 func Listen(changeReceiver chan<- FileChange) {
-
+	log.Println("starting to listen on fanotify events")
 	fan, err := unix.FanotifyInit(fanReportFid, 0)
 	if err != nil {
 		fmt.Println(err)
@@ -82,6 +84,8 @@ func Listen(changeReceiver chan<- FileChange) {
 		fmt.Println(err)
 		panic("could not call fanotifymark")
 	}
+
+	log.Println("fanotify initialized")
 
 	f := os.NewFile(uintptr(fan), "")
 	r := bufio.NewReader(f)
@@ -130,62 +134,17 @@ func Listen(changeReceiver chan<- FileChange) {
 		sym := fmt.Sprintf("/proc/self/fd/%d", fd)
 		path := make([]byte, 200)
 		pathLength, err := unix.Readlink(sym, path)
+
 		if err != nil {
 			fmt.Println("could not call Readlink:", err)
 			continue
 		}
+		path = path[:pathLength]
+		log.Println("received event, path:", string(path),
+			"flags:", maskToString(meta.Mask))
 		if config.IsPathFiltered(string(path)) {
 			continue
 		}
-
-		// if meta.Mask&unix.IN_ACCESS > 0 {
-		// 	fmt.Println("FAN_ACCESS")
-		// }
-		// if meta.Mask&unix.IN_ATTRIB > 0 {
-		// 	fmt.Println("FAN_ATTRIB")
-		// }
-		// if meta.Mask&unix.IN_CLOSE_NOWRITE > 0 {
-		// 	fmt.Println("FAN_CLOSE_NOWRITE")
-		// }
-		// if meta.Mask&unix.IN_CLOSE_WRITE > 0 {
-		// 	fmt.Println("FAN_CLOSE_WRITE")
-		// }
-		// if meta.Mask&unix.IN_CREATE > 0 {
-		// 	fmt.Println("fanCreate")
-		// }
-		// if meta.Mask&unix.IN_DELETE > 0 {
-		// 	fmt.Println("fanDelete")
-		// }
-		// if meta.Mask&unix.IN_DELETE_SELF > 0 {
-		// 	fmt.Println("fanDelete_SELF")
-		// }
-		// if meta.Mask&unix.IN_IGNORED > 0 {
-		// 	fmt.Println("FAN_IGNORED")
-		// }
-		// if meta.Mask&unix.IN_ISDIR > 0 {
-		// 	fmt.Println("FAN_ISDIR")
-		// }
-		// if meta.Mask&unix.IN_MODIFY > 0 {
-		// 	fmt.Println("FAN_MODIFY")
-		// }
-		// if meta.Mask&unix.IN_MOVE_SELF > 0 {
-		// 	fmt.Println("fanMoveSelf")
-		// }
-		// if meta.Mask&unix.IN_MOVED_FROM > 0 {
-		// 	fmt.Println("fanMovedFrom")
-		// }
-		// if meta.Mask&unix.IN_MOVED_TO > 0 {
-		// 	fmt.Println("fanMovedTo")
-		// }
-		// if meta.Mask&unix.IN_OPEN > 0 {
-		// 	fmt.Println("FAN_OPEN")
-		// }
-		// if meta.Mask&unix.IN_Q_OVERFLOW > 0 {
-		// 	fmt.Println("FAN_Q_OVERFLOW")
-		// }
-		// if meta.Mask&unix.IN_UNMOUNT > 0 {
-		// 	fmt.Println("FAN_UNMOUNT")
-		// }
 
 		changeType := 0
 		if meta.Mask&unix.IN_CREATE > 0 ||
@@ -198,9 +157,62 @@ func Listen(changeReceiver chan<- FileChange) {
 		}
 
 		change := FileChange{
-			string(path[:pathLength]),
+			string(path),
 			changeType,
 		}
 		changeReceiver <- change
 	}
+}
+
+func maskToString(mask uint64) string {
+	var flags []string
+	if mask&unix.IN_ACCESS > 0 {
+		flags = append(flags, "FAN_ACCESS")
+	}
+	if mask&unix.IN_ATTRIB > 0 {
+		flags = append(flags, "FAN_ATTRIB")
+	}
+	if mask&unix.IN_CLOSE_NOWRITE > 0 {
+		flags = append(flags, "FAN_CLOSE_NOWRITE")
+	}
+	if mask&unix.IN_CLOSE_WRITE > 0 {
+		flags = append(flags, "FAN_CLOSE_WRITE")
+	}
+	if mask&unix.IN_CREATE > 0 {
+		flags = append(flags, "FAN_CREATE")
+	}
+	if mask&unix.IN_DELETE > 0 {
+		flags = append(flags, "FAN_DELETE")
+	}
+	if mask&unix.IN_DELETE_SELF > 0 {
+		flags = append(flags, "FAN_DELETE_SELF")
+	}
+	if mask&unix.IN_IGNORED > 0 {
+		flags = append(flags, "FAN_IGNORED")
+	}
+	if mask&unix.IN_ISDIR > 0 {
+		flags = append(flags, "FAN_ISDIR")
+	}
+	if mask&unix.IN_MODIFY > 0 {
+		flags = append(flags, "FAN_MODIFY")
+	}
+	if mask&unix.IN_MOVE_SELF > 0 {
+		flags = append(flags, "fanMoveSelf")
+	}
+	if mask&unix.IN_MOVED_FROM > 0 {
+		flags = append(flags, "fanMovedFrom")
+	}
+	if mask&unix.IN_MOVED_TO > 0 {
+		flags = append(flags, "fanMovedTo")
+	}
+	if mask&unix.IN_OPEN > 0 {
+		flags = append(flags, "FAN_OPEN")
+	}
+	if mask&unix.IN_Q_OVERFLOW > 0 {
+		flags = append(flags, "FAN_Q_OVERFLOW")
+	}
+	if mask&unix.IN_UNMOUNT > 0 {
+		flags = append(flags, "FAN_UNMOUNT")
+	}
+	return strings.Join(flags, ", ")
 }
