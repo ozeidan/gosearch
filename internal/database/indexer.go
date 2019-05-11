@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/karrick/godirwalk"
@@ -223,19 +224,46 @@ func indexTrieDelete(name, path string) {
 	}
 }
 
+type sortResult struct {
+	result  string
+	skipped int
+}
+
+type bySkipped []sortResult
+
+func (a bySkipped) Len() int           { return len(a) }
+func (a bySkipped) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a bySkipped) Less(i, j int) bool { return a[i].skipped < a[j].skipped }
+
 func queryIndex(req request.Request) {
 	defer close(req.ResponseChannel)
 	prefix := trie.Prefix(req.Query)
 
-	switch req.Action {
+	switch req.Settings.Action {
 	case request.PrefixSearch:
 		indexTrie.VisitSubtree(
 			prefix,
 			sendResults(req.ResponseChannel))
 	case request.FuzzySearch:
-		indexTrie.VisitFuzzy(
-			prefix,
-			sendResults(req.ResponseChannel))
+		if req.Settings.NoSort {
+			indexTrie.VisitFuzzy(
+				prefix,
+				func(prefix trie.Prefix, item trie.Item, skipped int) error {
+					return sendResults(req.ResponseChannel)(prefix, item)
+				})
+			return
+		}
+
+		var results []sortResult
+		visitor := func(prefix trie.Prefix, item trie.Item, skipped int) error {
+			list := item.([]indexedFile)
+			for _, file := range list {
+				results = append(results, sortResult{file.pathNode.GetPath(), skipped})
+			}
+			return nil
+		}
+		sort.Sort(bySkipped(results))
+		indexTrie.VisitFuzzy(prefix, visitor)
 	}
 }
 

@@ -9,6 +9,8 @@ import (
 
 func main() {
 	fuzzyFlag := flag.Bool("f", false, "use fuzzy searching")
+	noSortFlag := flag.Bool("nosort", false,
+		"don't sort the result set for performance gains")
 
 	flag.Parse()
 
@@ -20,9 +22,9 @@ func main() {
 	query := flag.Arg(0)
 
 	responseChan := make(chan string, 0)
-	go client.SearchRequest(query, *fuzzyFlag, responseChan)
+	go client.SearchRequest(query, *fuzzyFlag, *noSortFlag, responseChan)
 
 	for response := range responseChan {
-		fmt.Printf(response)
+		fmt.Print(response)
 	}
 }

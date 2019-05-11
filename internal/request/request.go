@@ -22,13 +22,20 @@ const (
 // Request holds the details of a request
 // that was received over the unix domain socket
 type Request struct {
-	// Action describes the requested action
-	Action int `json:"action"`
 	// Query holds the string which is searched for
 	Query string `json:"data"`
+	// Settings holds some query settings
+	Settings Settings `json:"settings"`
 	// ResponseChannel is the channel
 	// on which the database will send back the results
 	ResponseChannel chan string `json:"-"`
+}
+
+type Settings struct {
+	// Action describes the requested action
+	Action int `json:"action"`
+	// Don't sort the results when fuzzy searching
+	NoSort bool `json:"no_sort"`
 }
 
 // ListenAndServe starts listening for and accepting requests

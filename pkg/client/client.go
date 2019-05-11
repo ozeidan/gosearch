@@ -9,7 +9,7 @@ import (
 	"github.com/ozeidan/gosearch/internal/request"
 )
 
-func SearchRequest(searchQuery string, fuzzy bool, responseChan chan<- string) {
+func SearchRequest(searchQuery string, fuzzy, sort bool, responseChan chan<- string) {
 	defer close(responseChan)
 	action := 0
 	if fuzzy {
@@ -18,8 +18,11 @@ func SearchRequest(searchQuery string, fuzzy bool, responseChan chan<- string) {
 		action = request.PrefixSearch
 	}
 	req := request.Request{
-		Action: action,
-		Query:  searchQuery,
+		Query: searchQuery,
+		Settings: request.Settings{
+			Action: action,
+			NoSort: !sort,
+		},
 	}
 
 	c, err := net.Dial("unix", request.SockAddr)
