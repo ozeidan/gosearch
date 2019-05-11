@@ -8,7 +8,7 @@ import (
 )
 
 // SockAddr is the path at which the unix domain socket is created
-const SockAddr = "/tmp/gosearch.sock"
+const SockAddr = "/run/gosearch.sock"
 
 const (
 	// PrefixSearch denotes searching for prefixes of file/directory names
@@ -45,6 +45,11 @@ func ListenAndServe(requestReceiver chan<- Request) {
 	}
 	defer l.Close()
 
+	setSocketPermissions()
+	if err != nil {
+		log.Fatal("couldn't set socket permissions properly", err)
+	}
+
 	for {
 		conn, err := l.Accept()
 
@@ -55,6 +60,28 @@ func ListenAndServe(requestReceiver chan<- Request) {
 
 		serve(conn, requestReceiver)
 	}
+}
+
+func setSocketPermissions() error {
+	// group, err := user.LookupGroup("users")
+	// if err != nil {
+	// 	return err
+	// }
+	// gid, err := strconv.Atoi(group.Gid)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = os.Chown(SockAddr, -1, gid)
+	// if err != nil {
+	// 	return err
+	// }
+
+	err := os.Chmod(SockAddr, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func serve(c net.Conn, requestReceiver chan<- Request) {
