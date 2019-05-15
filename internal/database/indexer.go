@@ -80,8 +80,8 @@ func refreshDirectory(path string) {
 	if len(createdNames) > 0 {
 		log.Printf("indexing new files %v\n", createdNames)
 	}
-	if len(createdNames) > 0 {
-		log.Printf("removing deleted files %v\n from index", deletedNames)
+	if len(deletedNames) > 0 {
+		log.Printf("removing deleted files %v from index", deletedNames)
 	}
 
 	for _, name := range createdNames {
@@ -147,7 +147,6 @@ func deleteFromIndex(path, name string) {
 	pathName := filepath.Join(path, name)
 
 	indexTrieDelete(name, path)
-
 	children, err := fileTree.GetChildren(pathName)
 	if err != nil {
 		// fmt.Println("warning:", err)
@@ -207,11 +206,14 @@ func indexTrieAdd(name string, index indexedFile) {
 
 func indexTrieDelete(name, path string) {
 	prefix := trie.Prefix(name)
+	filePath := filepath.Join(path, name)
 	if item := indexTrie.Get(prefix); item != nil {
 		fileList := item.([]indexedFile)
 		for i := 0; i < len(fileList); i++ {
 			index := fileList[i]
-			if index.pathNode.GetPath() != path {
+			existingPath := index.pathNode.GetPath()
+
+			if existingPath != filePath {
 				continue
 			}
 
@@ -219,6 +221,7 @@ func indexTrieDelete(name, path string) {
 			fileList = fileList[:len(fileList)-1]
 			break
 		}
+		indexTrie.Set(prefix, fileList)
 	}
 }
 
