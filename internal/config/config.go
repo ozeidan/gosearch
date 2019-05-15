@@ -11,12 +11,13 @@ import (
 )
 
 type serverConfig struct {
-	SubstringFilters []string `json:"substring_filters"`
-	RegexFilters     []string `json:"regex_filters"`
+	SubstringFilters  []string `json:"substring_filters"`
+	RegexFilters      []string `json:"regex_filters"`
+	IgnoreHiddenFiles bool     `json:"ignore_hidden_files"`
 }
 
 const configPath = "/etc/goSearch/config" // TODO: XDG_CONFIG_DIRS?
-var config = serverConfig{[]string{}, []string{}}
+var config = serverConfig{[]string{}, []string{}, false}
 
 var regexFilters []*regexp.Regexp
 
@@ -46,7 +47,7 @@ func ParseConfig() error {
 
 func createConfigStub() error {
 	err := os.Mkdir("/etc/goSearch", os.ModePerm)
-	if err != nil {
+	if err != nil && !os.IsExist(err) {
 		return errors.Wrap(err, "can't create config directory")
 	}
 	f, err := os.Create(configPath)
@@ -83,9 +84,19 @@ func IsPathFiltered(path string) bool {
 			return true
 		}
 	}
+
 	for _, r := range regexFilters {
 		if r.MatchString(path) {
 			return true
+		}
+	}
+
+	if config.IgnoreHiddenFiles {
+		parts := strings.Split(path, "/")
+		for _, part := range parts {
+			if len(part) > 0 && part[0] == '.' {
+				return true
+			}
 		}
 	}
 

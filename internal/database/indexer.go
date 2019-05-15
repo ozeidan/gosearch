@@ -64,7 +64,7 @@ func refreshDirectory(path string) {
 	for _, dirent := range newDirents {
 		name := dirent.Name()
 		if config.IsPathFiltered(filepath.Join(path, name)) {
-			log.Println("ignoring filtered file", name)
+			// log.Println("ignoring filtered file", name)
 			continue
 		}
 		newNames = append(newNames, name)
