@@ -11,8 +11,9 @@ import (
 const SockAddr = "/run/gosearch.sock"
 
 const (
+	SubStringSearch = iota
 	// PrefixSearch denotes searching for prefixes of file/directory names
-	PrefixSearch = iota
+	PrefixSearch
 	// FuzzySearch does a fuzzy search on file/directory names
 	FuzzySearch
 	// IndexRefresh refreshes the whole database over the files
@@ -108,9 +109,10 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 		responseBytes := []byte(response + "\n")
 		n, err := c.Write(responseBytes)
 		if n != len(responseBytes) {
-			log.Printf("wrote %d byte, expected to write %d", n, len(responseBytes))
+			log.Printf("wrote %d bytes, expected to write %d", n, len(responseBytes))
 		}
 		if err != nil {
+			log.Println("failed to write to unix domain socket:", err)
 			break
 		}
 

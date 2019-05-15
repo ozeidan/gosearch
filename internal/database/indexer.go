@@ -2,7 +2,6 @@ package database
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"path/filepath"
 	"sort"
@@ -74,8 +73,7 @@ func refreshDirectory(path string) {
 
 	oldNames, err := fileTree.GetChildren(path)
 	if err != nil {
-		fmt.Println(err)
-		panic("paniiiiiiiiic")
+		log.Println("couldn't get children of path", path, err)
 	}
 
 	createdNames, deletedNames := sliceDifference(newNames, oldNames)
@@ -235,15 +233,44 @@ func (a bySkipped) Len() int           { return len(a) }
 func (a bySkipped) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a bySkipped) Less(i, j int) bool { return a[i].skipped < a[j].skipped }
 
+type byLength []string
+
+func (a byLength) Len() int           { return len(a) }
+func (a byLength) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byLength) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
+
 func queryIndex(req request.Request) {
 	defer close(req.ResponseChannel)
 	prefix := trie.Prefix(req.Query)
 
 	switch req.Settings.Action {
 	case request.PrefixSearch:
-		indexTrie.VisitSubtree(
-			prefix,
-			sendResults(req.ResponseChannel))
+		fallthrough
+	case request.SubStringSearch:
+		var visitFunc func(trie.Prefix, trie.VisitorFunc) error
+		if req.Settings.Action == request.PrefixSearch {
+			visitFunc = indexTrie.VisitSubtree
+		} else {
+			visitFunc = indexTrie.VisitSubstring
+		}
+
+		if req.Settings.NoSort {
+			visitFunc(prefix, sendResults(req.ResponseChannel))
+			return
+		}
+
+		var results []string
+		visitFunc(prefix, func(prefix trie.Prefix, item trie.Item) error {
+			list := item.([]indexedFile)
+			for _, file := range list {
+				results = append(results, file.pathNode.GetPath())
+			}
+			return nil
+		})
+		sort.Sort(byLength(results))
+		for _, result := range results {
+			req.ResponseChannel <- result
+		}
 	case request.FuzzySearch:
 		if req.Settings.NoSort {
 			indexTrie.VisitFuzzy(
@@ -262,8 +289,12 @@ func queryIndex(req request.Request) {
 			}
 			return nil
 		}
-		sort.Sort(bySkipped(results))
 		indexTrie.VisitFuzzy(prefix, visitor)
+
+		sort.Sort(bySkipped(results))
+		for _, result := range results {
+			req.ResponseChannel <- result.result
+		}
 	}
 }
 
