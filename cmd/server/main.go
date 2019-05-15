@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 
+	"github.com/ozeidan/gosearch/internal/config"
 	"github.com/ozeidan/gosearch/internal/database"
 	"github.com/ozeidan/gosearch/internal/fanotify"
 	"github.com/ozeidan/gosearch/internal/request"
@@ -20,6 +22,11 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
+	}
+
+	err = config.ParseConfig()
+	if err != nil {
+		log.Println("failed to initialize configuration", err)
 	}
 
 	fileChangeChan := make(chan fanotify.FileChange, 100)
@@ -57,7 +64,7 @@ func setupLogFiles() error {
 	}
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.SetOutput(file)
+	log.SetOutput(io.MultiWriter(os.Stdout, file))
 
 	return nil
 }

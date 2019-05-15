@@ -127,7 +127,7 @@ func Listen(changeReceiver chan<- FileChange) {
 
 		fd, err := unix.OpenByHandleAt(atFDCWD, unixFileHandle, 0)
 		if err != nil {
-			fmt.Println("could not call OpenByHandleAt:", err)
+			log.Println("could not call OpenByHandleAt:", err)
 			continue
 		}
 
@@ -136,7 +136,7 @@ func Listen(changeReceiver chan<- FileChange) {
 		pathLength, err := unix.Readlink(sym, path)
 
 		if err != nil {
-			fmt.Println("could not call Readlink:", err)
+			log.Println("could not call Readlink:", err)
 			continue
 		}
 		path = path[:pathLength]
