@@ -3,43 +3,66 @@ package client
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net"
 
 	"github.com/ozeidan/gosearch/internal/request"
 )
 
-func SearchRequest(searchQuery string, action int, noSort bool, responseChan chan<- string) {
-	defer close(responseChan)
+type Option func(req *request.Request)
 
-	req := request.Request{
-		Query: searchQuery,
-		Settings: request.Settings{
-			Action: action,
-			NoSort: noSort,
-		},
+var ErrConnectionFailed = errors.New("could not connect to the server")
+
+func Fuzzy(req *request.Request) {
+	req.Settings.Action = request.FuzzySearch
+}
+
+func PrefixSearch(req *request.Request) {
+	req.Settings.Action = request.PrefixSearch
+}
+
+func NoSort(req *request.Request) {
+	req.Settings.NoSort = true
+}
+
+func ReverseSort(req *request.Request) {
+	req.Settings.ReverseSort = true
+}
+
+func SearchRequest(searchQuery string, options ...Option) (<-chan string, error) {
+	responseChan := make(chan string, 0)
+
+	req := new(request.Request)
+	req.Query = searchQuery
+
+	for _, option := range options {
+		option(req)
 	}
 
 	c, err := net.Dial("unix", request.SockAddr)
 
 	if err != nil {
-		fmt.Println("could not connect to the server. is the server running?")
-		fmt.Printf("err = %+v\n", err)
-		return
+		return nil, ErrConnectionFailed
 	}
-	defer c.Close()
 
 	err = json.NewEncoder(c).Encode(&req)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	reader := bufio.NewReader(c)
-	for {
-		bytes, err := reader.ReadBytes('\n')
-		if err != nil {
-			return
+	go func() {
+		defer close(responseChan)
+		defer c.Close()
+		reader := bufio.NewReader(c)
+		for {
+			bytes, err := reader.ReadBytes('\n')
+			if err != nil {
+				// TODO: handle this error
+				return
+			}
+			responseChan <- string(bytes)
 		}
-		responseChan <- string(bytes)
-	}
+	}()
+
+	return responseChan, nil
 }

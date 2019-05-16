@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"time"
 
@@ -50,6 +51,7 @@ func initialIndex() {
 	log.Println("finished creating initial index")
 	log.Printf("indexed %d files and %d directories in %f seconds",
 		files, directories, end.Sub(start).Seconds())
+	PrintMemUsage()
 }
 
 func refreshDirectory(path string) {
@@ -232,9 +234,14 @@ type sortResult struct {
 
 type bySkipped []sortResult
 
-func (a bySkipped) Len() int           { return len(a) }
-func (a bySkipped) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a bySkipped) Less(i, j int) bool { return a[i].skipped < a[j].skipped }
+func (a bySkipped) Len() int      { return len(a) }
+func (a bySkipped) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a bySkipped) Less(i, j int) bool {
+	if a[i].skipped == a[j].skipped {
+		return len(a[i].result) < len(a[j].result)
+	}
+	return a[i].skipped < a[j].skipped
+}
 
 type byLength []string
 
@@ -270,7 +277,16 @@ func queryIndex(req request.Request) {
 			}
 			return nil
 		})
-		sort.Sort(byLength(results))
+
+		// normal sorting is from worst to best
+		// so that the best result will show right
+		// above the command prompt
+		if req.Settings.ReverseSort {
+			sort.Sort(byLength(results))
+		} else {
+			sort.Sort(sort.Reverse(byLength(results)))
+		}
+
 		for _, result := range results {
 			req.ResponseChannel <- result
 		}
@@ -294,7 +310,12 @@ func queryIndex(req request.Request) {
 		}
 		indexTrie.VisitFuzzy(prefix, visitor)
 
-		sort.Sort(bySkipped(results))
+		if req.Settings.ReverseSort {
+			sort.Sort(bySkipped(results))
+		} else {
+			sort.Sort(sort.Reverse(bySkipped(results)))
+		}
+
 		for _, result := range results {
 			req.ResponseChannel <- result.result
 		}
@@ -309,4 +330,18 @@ func sendResults(channel chan string) trie.VisitorFunc {
 		}
 		return nil
 	}
+}
+
+func PrintMemUsage() {
+	runtime.GC()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	log.Println("Memory Statistics:")
+	log.Printf("\tAlloc = %v MiB", bToMb(m.Alloc))
+	log.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	log.Printf("\tSys = %v MiB", bToMb(m.Sys))
+}
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

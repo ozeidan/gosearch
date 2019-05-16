@@ -36,7 +36,8 @@ type Settings struct {
 	// Action describes the requested action
 	Action int `json:"action"`
 	// Don't sort the results when fuzzy searching
-	NoSort bool `json:"no_sort"`
+	NoSort      bool `json:"no_sort"`
+	ReverseSort bool `json:"reverse_sort"`
 }
 
 // ListenAndServe starts listening for and accepting requests

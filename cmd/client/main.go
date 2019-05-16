@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/ozeidan/gosearch/internal/request"
 	"github.com/ozeidan/gosearch/pkg/client"
 )
 
@@ -13,6 +12,7 @@ func main() {
 	prefixFlag := flag.Bool("p", false, "do a prefix search (faster)")
 	noSortFlag := flag.Bool("nosort", false,
 		"don't sort the result set for performance gains when fuzzy searching")
+	reverseSortFlag := flag.Bool("r", false, "reverse the sort order")
 
 	flag.Parse()
 
@@ -28,17 +28,28 @@ func main() {
 
 	query := flag.Arg(0)
 
-	responseChan := make(chan string, 0)
+	options := []client.Option{}
 
-	action := request.SubStringSearch
 	if *fuzzyFlag {
-		action = request.FuzzySearch
-	} else if *prefixFlag {
-		action = request.PrefixSearch
-	} else {
+		options = append(options, client.Fuzzy)
+	}
+	if *prefixFlag {
+		options = append(options, client.PrefixSearch)
+	}
+	if *noSortFlag {
+		options = append(options, client.NoSort)
+	}
+	if *reverseSortFlag {
+		options = append(options, client.ReverseSort)
 	}
 
-	go client.SearchRequest(query, action, *noSortFlag, responseChan)
+	responseChan, err := client.SearchRequest(query, options...)
+
+	if err == client.ErrConnectionFailed {
+		fmt.Println(err)
+		fmt.Println("is the server running?")
+		return
+	}
 
 	for response := range responseChan {
 		fmt.Print(response)
