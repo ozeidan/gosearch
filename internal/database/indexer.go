@@ -34,7 +34,7 @@ func Start(changeSender <-chan fanotify.FileChange,
 
 var errFilter = errors.New("directory filtered")
 
-var indexTrie *trie.Trie = trie.NewTrie()
+var indexTrie *trie.Trie = trie.NewTrie(trie.MaxChildrenPerSparseNode(0))
 var fileTree *tree.Node = tree.New()
 
 type indexedFile struct {
@@ -174,10 +174,9 @@ func addToIndexRecursively(path string) (uint64, uint64) {
 				fileCount++
 			}
 
-			newNode := fileTree.Add(osPathname)
-			name := de.Name()
+			newNode := fileTree.Add(string(osPathname))
 			newFile := indexedFile{newNode}
-			indexTrieAdd(name, newFile)
+			indexTrieAdd(string(de.Name()), newFile)
 
 			return nil
 		},

@@ -73,7 +73,9 @@ func (t *Node) Add(path string) *Node {
 		if child, ok := current.findFile(part); ok {
 			current = child
 		} else {
-			child = &Node{make([]*Node, 0), part, current}
+			newPart := make([]byte, len(part))
+			copy(newPart, []byte(part))
+			child = &Node{make([]*Node, 0), string(newPart), current}
 			current.children = append(current.children, child)
 			current = child
 		}
