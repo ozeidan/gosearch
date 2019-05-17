@@ -11,13 +11,14 @@ import (
 )
 
 type serverConfig struct {
+	PrefixFilters     []string `json:"prefix_filters"`
 	SubstringFilters  []string `json:"substring_filters"`
 	RegexFilters      []string `json:"regex_filters"`
 	IgnoreHiddenFiles bool     `json:"ignore_hidden_files"`
 }
 
 const configPath = "/etc/goSearch/config" // TODO: XDG_CONFIG_DIRS?
-var config = serverConfig{[]string{}, []string{}, false}
+var config = serverConfig{[]string{}, []string{}, []string{}, false}
 
 var regexFilters []*regexp.Regexp
 
@@ -79,6 +80,12 @@ func parseFilters() {
 // IsPathFiltered determines returns whether the given path is filtered
 // by the user's configuration
 func IsPathFiltered(path string) bool {
+	for _, prefixFilter := range config.PrefixFilters {
+		if strings.HasPrefix(path, prefixFilter) {
+			return true
+		}
+	}
+
 	for _, substringFilter := range config.SubstringFilters {
 		if strings.Contains(path, substringFilter) {
 			return true
