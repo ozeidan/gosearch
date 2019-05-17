@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -11,22 +9,18 @@ import (
 	"github.com/ozeidan/gosearch/internal/database"
 	"github.com/ozeidan/gosearch/internal/fanotify"
 	"github.com/ozeidan/gosearch/internal/request"
-	"github.com/pkg/errors"
 )
 
-const appName = "goSearch"
-
 func main() {
-	err := setupLogFiles()
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	err = config.ParseConfig()
+	err := config.ParseConfig()
 	if err != nil {
 		log.Println("failed to initialize configuration", err)
+	}
+
+	err = config.SetupLogging()
+	if err != nil {
+		log.Println(err)
+		return
 	}
 
 	fileChangeChan := make(chan fanotify.FileChange, 100)
@@ -40,31 +34,4 @@ func main() {
 	for range c {
 		break
 	}
-}
-
-func setupLogFiles() error {
-	logDirectory := fmt.Sprintf("/var/log/%s", appName)
-	if _, err := os.Stat(logDirectory); os.IsNotExist(err) {
-		err := os.Mkdir(logDirectory, os.ModePerm)
-		if err != nil {
-			return errors.Wrap(
-				err,
-				"couldn't create logging directory",
-			)
-		}
-	}
-
-	logFilePath := fmt.Sprintf("%s/default", logDirectory)
-	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return errors.Wrap(
-			err,
-			"couldn't open logfile",
-		)
-	}
-
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.SetOutput(io.MultiWriter(os.Stdout, file))
-
-	return nil
 }

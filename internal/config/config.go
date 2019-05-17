@@ -15,10 +15,13 @@ type serverConfig struct {
 	SubstringFilters  []string `json:"substring_filters"`
 	RegexFilters      []string `json:"regex_filters"`
 	IgnoreHiddenFiles bool     `json:"ignore_hidden_files"`
+	StdoutLogs        bool     `json:"print_logs"`
+	FileLogs          bool     `json:"file_logs"`
 }
 
+const AppName = "goSearch"
 const configPath = "/etc/goSearch/config" // TODO: XDG_CONFIG_DIRS?
-var config = serverConfig{[]string{}, []string{}, []string{}, false}
+var config = serverConfig{[]string{}, []string{}, []string{}, false, false, false}
 
 var regexFilters []*regexp.Regexp
 
