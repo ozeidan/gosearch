@@ -5,15 +5,10 @@ import (
 	"strings"
 )
 
-type fileEntry struct {
-	name string
-	node *Node
-}
-
 // Node is a node of a directory tree
 type Node struct {
-	children []fileEntry
-	part     string
+	children []*Node
+	name     string
 	parent   *Node
 }
 
@@ -30,7 +25,7 @@ func (err ErrInvalidPath) Error() string {
 func (t Node) findFile(name string) (*Node, bool) {
 	for _, c := range t.children {
 		if c.name == name {
-			return c.node, true
+			return c, true
 		}
 	}
 	return nil, false
@@ -78,9 +73,8 @@ func (t *Node) Add(path string) *Node {
 		if child, ok := current.findFile(part); ok {
 			current = child
 		} else {
-			child = &Node{make([]fileEntry, 0), part, current}
-			current.children = append(current.children,
-				fileEntry{part, child})
+			child = &Node{make([]*Node, 0), part, current}
+			current.children = append(current.children, child)
 			current = child
 		}
 	}
@@ -107,12 +101,12 @@ func (t *Node) DeleteAt(path string) error {
 	return nil
 }
 
-func (t Node) GetPath() string {
+func (t *Node) GetPath() string {
 	parts := make([]string, 0, 10) // faster?
-	current := &t
+	current := t
 
 	for ; current.parent != nil; current = current.parent {
-		parts = append(parts, current.part)
+		parts = append(parts, current.name)
 	}
 
 	var builder strings.Builder
@@ -126,7 +120,7 @@ func (t Node) GetPath() string {
 
 // New returns a new Node
 func New() *Node {
-	return &Node{make([]fileEntry, 0), "", nil}
+	return &Node{make([]*Node, 0), "", nil}
 }
 
 func pathToParts(path string) []string {

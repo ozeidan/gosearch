@@ -5,140 +5,135 @@ import (
 	"testing"
 )
 
-// TODO: looks weird
-var baseNode = Node{
-	map[string]Node{
-		"home": Node{
-			map[string]Node{
-				"omar": Node{
-					map[string]Node{
-						"empty": Node{},
-						"documents": Node{
-							map[string]Node{
-								"documentA": Node{},
-								"documentB": Node{},
-							},
-						},
-					},
-				},
-			},
-		},
-	},
+var files = []string{
+	"/home/user/Documents/file1",
+	"/home",
+	"/home/user/Downloads/file2",
+	"/home/user/empty",
+	"/home/user/Desktop",
+	"/home/user/Desktop/file3",
+	"/home/user/Desktop/file4",
+}
+
+func buildTree() *Node {
+	tree := New()
+	for _, file := range files {
+		tree.Add(file)
+	}
+	return tree
 }
 
 func TestNode_GetChildren(t *testing.T) {
-	type fields struct {
-		children map[string]Node
-	}
 	type args struct {
 		path string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    []string
 		wantErr bool
 	}{
 		{
 			"simple_test",
-			fields{baseNode.children},
 			args{"/home"},
-			[]string{"omar"},
+			[]string{"user"},
 			false,
 		},
 		{
 			"empty_test",
-			fields{baseNode.children},
-			args{"/home/omar/empty"},
+			args{"/home/user/empty"},
 			[]string{},
 			false,
 		},
 		{
 			"multiple_test",
-			fields{baseNode.children},
-			args{"/home/omar/documents"},
-			[]string{"documentA", "documentB"},
+			args{"/home/user/Desktop"},
+			[]string{"file3", "file4"},
 			false,
 		},
+		{
+			"invalid_path",
+			args{"/home/user/doesntexist"},
+			[]string{},
+			true,
+		},
 	}
+	tree := buildTree()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tree := Node{
-				children: tt.fields.children,
-			}
 			got, err := tree.GetChildren(tt.args.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Node.GetChildren() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Node.GetChildren() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-// func TestNode_Add(t *testing.T) {
-// 	type fields struct {
-// 		children map[string]Node
-// 	}
-// 	type args struct {
-// 		path string
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		fields  fields
-// 		args    args
-// 		wantErr bool
-// 	}{
-// 		// TODO: Add test cases.
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			t := &Node{
-// 				children: tt.fields.children,
-// 			}
-// 			if err := t.Add(tt.args.path); (err != nil) != tt.wantErr {
-// 				t.Errorf("Node.Add() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 		})
-// 	}
-// }
-
-func TestNode_DeleteAt(t *testing.T) {
-	type fields struct {
-		children map[string]Node
-	}
+func TestNode_AddGetPath(t *testing.T) {
 	type args struct {
 		path string
 	}
 	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "new_addition",
+			args: args{
+				path: "/usr",
+			},
+		},
+		{
+			name: "new_file",
+			args: args{
+				path: "/home/user/Downloads/newfile",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree := buildTree()
+			newNode := tree.Add(tt.args.path)
+
+			gotPath := newNode.GetPath()
+
+			if gotPath != tt.args.path {
+				t.Errorf("Node.GetPath() error, wanted %s, got %s", tt.args.path, gotPath)
+			}
+		})
+	}
+}
+
+func TestNode_DeleteAt(t *testing.T) {
+	tests := []struct {
 		name    string
-		fields  fields
-		args    args
+		path    string
 		wantErr bool
 	}{
 		{
 			"working_test",
-			fields{baseNode.children},
-			args{"/home/omar/documents"},
+			"/home/user/Documents",
 			false,
 		},
 		{
 			"not_working_test",
-			fields{baseNode.children},
-			args{"/home/omar/doesnotexist"},
+			"/home/omar/doesnotexist",
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tree := &Node{
-				children: tt.fields.children,
-			}
-			if err := tree.DeleteAt(tt.args.path); (err != nil) != tt.wantErr {
+			tree := buildTree()
+			if err := tree.DeleteAt(tt.path); (err != nil) != tt.wantErr {
 				t.Errorf("Node.DeleteAt() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err := tree.DeleteAt(tt.path); err == nil {
+				t.Errorf("Node.DeleteAt() error = nil, not deleted properly")
 			}
 		})
 	}
@@ -151,7 +146,7 @@ func TestNew(t *testing.T) {
 	}{
 		{
 			"default_test",
-			&Node{map[string]Node{}},
+			&Node{[]*Node{}, "", nil},
 		},
 	}
 	for _, tt := range tests {
