@@ -34,19 +34,25 @@ func Start(changeSender <-chan fanotify.FileChange,
 
 var errFilter = errors.New("directory filtered")
 
-var indexTrie *trie.Trie = trie.NewTrie(trie.MaxChildrenPerSparseNode(0))
-var fileTree *tree.Node = tree.New()
+var indexTrie *trie.Trie
+var fileTree *tree.Node
 
 type indexedFile struct {
 	pathNode *tree.Node
 }
 
 func initialIndex() {
+	indexTrie = trie.NewTrie()
+	fileTree = tree.New()
+	trie.SetUseSuperDenseChildLists(true)
+
 	log.Println("starting to create initial index")
+
 	start := time.Now()
 	dirname := "/"
 	files, directories := addToIndexRecursively(dirname)
 	end := time.Now()
+
 	log.Println("finished creating initial index")
 	log.Printf("indexed %d files and %d directories in %f seconds",
 		files, directories, end.Sub(start).Seconds())

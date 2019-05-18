@@ -1,9 +1,7 @@
 github.com/karrick/godirwalk v1.9.0 h1:mnk3l1T+K1Q5ucMdJNvo09HKmZdtfBnv+BwTX+CPtfM=
 github.com/karrick/godirwalk v1.9.0/go.mod h1:H5KPZjojv4lE+QYImBI8xVtrBRgYrIVsaRPx4tDPEn4=
-github.com/ozeidan/go-patricia v2.6.0+incompatible h1:7kicsuj/K13MFd+b/+yETUetRsunwSgHB4tsamIRlro=
-github.com/ozeidan/go-patricia v2.6.0+incompatible/go.mod h1:TRlr7Xe+FozWQs/clvUS95kmNdBDBQjNYJPZQzfaZhE=
-github.com/ozeidan/go-patricia v2.6.1+incompatible h1:YqhG4/Ary6pKRQyDIihPpStizMNc0a2P5eiraJh2sbg=
-github.com/ozeidan/go-patricia v2.6.1+incompatible/go.mod h1:TRlr7Xe+FozWQs/clvUS95kmNdBDBQjNYJPZQzfaZhE=
+github.com/ozeidan/go-patricia v2.7.0+incompatible h1:yDea5d+krdKbiDGUmGZu53FxIvgvLE91g49eNOreBtI=
+github.com/ozeidan/go-patricia v2.7.0+incompatible/go.mod h1:TRlr7Xe+FozWQs/clvUS95kmNdBDBQjNYJPZQzfaZhE=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 golang.org/x/sys v0.0.0-20190502175342-a43fa875dd82 h1:vsphBvatvfbhlb4PO1BYSr9dzugGxJ/SQHoNufZJq1w=
