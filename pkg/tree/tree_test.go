@@ -121,7 +121,7 @@ func TestNode_DeleteAt(t *testing.T) {
 		},
 		{
 			"not_working_test",
-			"/home/omar/doesnotexist",
+			"/home/user/doesnotexist",
 			true,
 		},
 	}
