@@ -13,10 +13,13 @@ CLIENT_BINARY_NAME=gosearch
 all: build
 
 build-server:
-	cd $(GOBASE)/cmd/server; $(GOBUILD) -o $(GOBASE)/$(SERVER_BINARY_NAME) -v
+	cd $(GOBASE)/cmd/server; $(GOBUILD) -v -o $(GOBASE)/$(SERVER_BINARY_NAME)
 
 build-client:
-	cd $(GOBASE)/cmd/client; $(GOBUILD) -o $(GOBASE)/$(CLIENT_BINARY_NAME) -v
+	cd $(GOBASE)/cmd/client; $(GOBUILD) -v -o $(GOBASE)/$(CLIENT_BINARY_NAME)
+
+install-client:
+	cd $(GOBASE)/cmd/client; $(GOBUILD) -v -o $(GOPATH)/bin/$(CLIENT_BINARY_NAME)
 
 build: build-server build-client
 
@@ -37,14 +40,14 @@ clean:
 deps:
 	$(GOGET)
 
-install: build-server move
+install: build-server install-client move
 
 move:
-	$(GOINSTALL) -v $(GOBASE)/cmd/client
 	sudo mv $(SERVER_BINARY_NAME) /usr/bin
 	sudo cp $(SYSTEMD_SERVICE_FILE) /etc/systemd/system/
 	sudo systemctl daemon-reload
 	sudo systemctl enable gosearch
+	sudo systemctl stop gosearch
 	sudo systemctl start gosearch
 
 
