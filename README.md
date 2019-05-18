@@ -56,6 +56,10 @@ If you don't want to install the systemd script, you can build the binaries by r
 and start the server binary `gosearchServer` by hand/use whatever system you're using.
 Contributions to support alternatives to systemd are appreciated!
 
+Configuration
+-------------
+The server will create a configuration file at `/etc/gosearch/config`, the first time it is run. You should probably edit it to set some filters in there, so some useless directories are not indexed (e.g. .cache, /proc, /dev...).
+
 Usage
 =====
 After the server is started and has indexed your files (takes a couple of seconds, depending on the amount of files on your system), you use the `gosearch` command send queries.
@@ -73,6 +77,7 @@ Prefix searching can be conducted by setting the `-p` flag, this is the fastes o
 	gosearch -p [query]
 
 To reverse the sorting order, the `-r` flag can be set, and sorting can be disabled by setting the `-nosort` flag.
+
 
 Contributing
 ============
