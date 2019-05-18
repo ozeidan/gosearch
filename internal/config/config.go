@@ -21,7 +21,7 @@ type serverConfig struct {
 
 const AppName = "goSearch"
 const configPath = "/etc/goSearch/config" // TODO: XDG_CONFIG_DIRS?
-var config = serverConfig{[]string{}, []string{}, []string{}, false, false, false}
+var config = serverConfig{[]string{}, []string{}, []string{}, false, true, false}
 
 var regexFilters []*regexp.Regexp
 
