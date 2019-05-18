@@ -1,0 +1,9 @@
+[Unit]
+Description=gosearch file indexing server
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/gosearchServer
+
+[Install]
+WantedBy=multi-user.target

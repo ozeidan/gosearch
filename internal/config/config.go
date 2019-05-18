@@ -19,8 +19,8 @@ type serverConfig struct {
 	FileLogs          bool     `json:"file_logs"`
 }
 
-const AppName = "goSearch"
-const configPath = "/etc/goSearch/config" // TODO: XDG_CONFIG_DIRS?
+const AppName = "gosearch"
+const configPath = "/etc/gosearch/config" // TODO: XDG_CONFIG_DIRS?
 var config = serverConfig{[]string{}, []string{}, []string{}, false, true, false}
 
 var regexFilters []*regexp.Regexp
@@ -50,7 +50,7 @@ func ParseConfig() error {
 }
 
 func createConfigStub() error {
-	err := os.Mkdir("/etc/goSearch", os.ModePerm)
+	err := os.Mkdir("/etc/gosearch", os.ModePerm)
 	if err != nil && !os.IsExist(err) {
 		return errors.Wrap(err, "can't create config directory")
 	}

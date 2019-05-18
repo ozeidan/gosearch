@@ -6,9 +6,9 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOINSTALL=$(GOCMD) install
 GOBASE := $(shell pwd)
-SYSTEMD_SERVICE_FILE=./init/goSearch.service
-SERVER_BINARY_NAME=goSearchServer
-CLIENT_BINARY_NAME=goSearchClient
+SYSTEMD_SERVICE_FILE=./init/gosearch.service
+SERVER_BINARY_NAME=gosearchServer
+CLIENT_BINARY_NAME=gosearch
 
 all: build
 
@@ -44,8 +44,8 @@ move:
 	sudo mv $(SERVER_BINARY_NAME) /usr/bin
 	sudo cp $(SYSTEMD_SERVICE_FILE) /etc/systemd/system/
 	sudo systemctl daemon-reload
-	sudo systemctl enable goSearch
-	sudo systemctl start goSearch
+	sudo systemctl enable gosearch
+	sudo systemctl start gosearch
 
 
 # Cross compilation
