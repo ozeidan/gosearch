@@ -76,6 +76,11 @@ Prefix searching can be conducted by setting the `-p` flag, this is the fastes o
 
 	gosearch -p [query]
 
+It is also possible to fuzzy search on whole file paths. To do this, run
+
+	gosearch -fp [query]
+Not sure if I'll leave fuzzy path searching in the program, as I'm not sure about the usefulness of this feature. It does increase the duration of the initial index and memory consumptoin by a little bit.
+
 To reverse the sorting order, the `-r` flag can be set, and sorting can be disabled by setting the `-nosort` flag.
 
 
