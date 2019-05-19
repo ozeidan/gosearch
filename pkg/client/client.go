@@ -21,6 +21,10 @@ func PrefixSearch(req *request.Request) {
 	req.Settings.Action = request.PrefixSearch
 }
 
+func PathSearch(req *request.Request) {
+	req.Settings.Action = request.PathSearch
+}
+
 func NoSort(req *request.Request) {
 	req.Settings.NoSort = true
 }

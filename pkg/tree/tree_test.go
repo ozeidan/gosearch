@@ -146,7 +146,7 @@ func TestNew(t *testing.T) {
 	}{
 		{
 			"default_test",
-			&Node{[]*Node{}, "", nil},
+			&Node{[]*Node{}, "", nil, 0},
 		},
 	}
 	for _, tt := range tests {

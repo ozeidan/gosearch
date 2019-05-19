@@ -16,6 +16,8 @@ const (
 	PrefixSearch
 	// FuzzySearch does a fuzzy search on file/directory names
 	FuzzySearch
+	// PathSearch does a fuzzy search on whole file paths
+	PathSearch
 	// IndexRefresh refreshes the whole database over the files
 	IndexRefresh
 )

@@ -10,6 +10,7 @@ import (
 func main() {
 	fuzzyFlag := flag.Bool("f", false, "use fuzzy searching")
 	prefixFlag := flag.Bool("p", false, "do a prefix search (faster)")
+	pathFlag := flag.Bool("fp", false, "fuzzy searching on file paths")
 	noSortFlag := flag.Bool("nosort", false,
 		"don't sort the result set for performance gains when fuzzy searching")
 	reverseSortFlag := flag.Bool("r", false, "reverse the sort order")
@@ -45,6 +46,9 @@ func main() {
 	}
 	if *reverseSortFlag {
 		options = append(options, client.ReverseSort)
+	}
+	if *pathFlag {
+		options = append(options, client.PathSearch)
 	}
 
 	responseChan, err := client.SearchRequest(query, options...)
