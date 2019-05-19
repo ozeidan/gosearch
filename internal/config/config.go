@@ -17,11 +17,16 @@ type serverConfig struct {
 	IgnoreHiddenFiles bool     `json:"ignore_hidden_files"`
 	StdoutLogs        bool     `json:"print_logs"`
 	FileLogs          bool     `json:"file_logs"`
+	HomeOnly          bool     `json:"home_only"`
 }
 
 const AppName = "gosearch"
 const configPath = "/etc/gosearch/config" // TODO: XDG_CONFIG_DIRS?
-var config = serverConfig{[]string{}, []string{}, []string{}, false, true, false}
+
+var config = serverConfig{
+	[]string{}, []string{}, []string{},
+	false, true, false, false,
+}
 
 var regexFilters []*regexp.Regexp
 
@@ -83,6 +88,12 @@ func parseFilters() {
 // IsPathFiltered determines returns whether the given path is filtered
 // by the user's configuration
 func IsPathFiltered(path string) bool {
+	if config.HomeOnly &&
+		!strings.HasPrefix(path, "/home") &&
+		path != "/" {
+		return true
+	}
+
 	for _, prefixFilter := range config.PrefixFilters {
 		if strings.HasPrefix(path, prefixFilter) {
 			return true
