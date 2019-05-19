@@ -29,6 +29,12 @@ func ReverseSort(req *request.Request) {
 	req.Settings.ReverseSort = true
 }
 
+func MaxResults(max int) Option {
+	return func(req *request.Request) {
+		req.Settings.MaxResults = max
+	}
+}
+
 func SearchRequest(searchQuery string, options ...Option) (<-chan string, error) {
 	responseChan := make(chan string, 0)
 

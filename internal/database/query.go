@@ -9,6 +9,11 @@ import (
 	"github.com/ozeidan/gosearch/internal/request"
 )
 
+type resulter interface {
+	Result(index int) string
+	sort.Interface
+}
+
 type sortResult struct {
 	result  string
 	skipped int
@@ -16,28 +21,25 @@ type sortResult struct {
 
 type bySkipped []sortResult
 
-func (a bySkipped) Len() int      { return len(a) }
-func (a bySkipped) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a bySkipped) Less(i, j int) bool {
-	if a[i].skipped == a[j].skipped {
-		return len(a[i].result) < len(a[j].result)
+func (s bySkipped) Len() int      { return len(s) }
+func (s bySkipped) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s bySkipped) Less(i, j int) bool {
+	if s[i].skipped == s[j].skipped {
+		return len(s[i].result) < len(s[j].result)
 	}
-	return a[i].skipped < a[j].skipped
+	return s[i].skipped < s[j].skipped
+}
+func (s bySkipped) Result(index int) string {
+	return s[index].result
 }
 
 type byLength []string
 
-func (a byLength) Len() int           { return len(a) }
-func (a byLength) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a byLength) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
-
-func logStart(action string) time.Time {
-	log.Println("starting to", action)
-	return time.Now()
-}
-
-func logStop(start time.Time) {
-	log.Println("done in", time.Now().Sub(start))
+func (l byLength) Len() int           { return len(l) }
+func (l byLength) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l byLength) Less(i, j int) bool { return len(l[i]) < len(l[j]) }
+func (l byLength) Result(index int) string {
+	return l[index]
 }
 
 func queryIndex(req request.Request) {
@@ -45,6 +47,9 @@ func queryIndex(req request.Request) {
 	log.Println("querying", req.Query)
 	prefix := trie.Prefix(req.Query)
 
+	var results resulter
+
+	start := logStart("query")
 	switch req.Settings.Action {
 	case request.PrefixSearch:
 		fallthrough
@@ -56,82 +61,70 @@ func queryIndex(req request.Request) {
 			visitFunc = indexTrie.VisitSubstring
 		}
 
-		if req.Settings.NoSort {
-			start := logStart("query and send")
-			visitFunc(prefix, sendResults(req.ResponseChannel))
-			logStop(start)
-			return
-		}
-
-		var results []string
-		start := logStart("query")
+		tempResults := byLength{}
 		visitFunc(prefix, func(prefix trie.Prefix, item trie.Item) error {
 			list := item.([]indexedFile)
 			for _, file := range list {
-				results = append(results, file.pathNode.GetPath())
+				tempResults = append(tempResults,
+					file.pathNode.GetPath())
 			}
 			return nil
 		})
-		logStop(start)
 
-		// normal sorting is from worst to best
-		// so that the best result will show right
-		// above the command prompt
-		start = logStart("sort")
-		if req.Settings.ReverseSort {
-			sort.Sort(byLength(results))
-		} else {
-			sort.Sort(sort.Reverse(byLength(results)))
-		}
-		logStop(start)
-
-		for _, result := range results {
-			req.ResponseChannel <- result
-		}
+		results = byLength(tempResults)
 	case request.FuzzySearch:
-		if req.Settings.NoSort {
-			start := logStart("query and send")
-			indexTrie.VisitFuzzy(
-				prefix,
-				func(prefix trie.Prefix, item trie.Item, skipped int) error {
-					return sendResults(req.ResponseChannel)(prefix, item)
-				})
-			logStop(start)
-			return
-		}
+		tempResults := []sortResult{}
+		indexTrie.VisitFuzzy(prefix,
+			func(prefix trie.Prefix, item trie.Item, skipped int) error {
+				list := item.([]indexedFile)
+				for _, file := range list {
+					tempResults = append(tempResults,
+						sortResult{file.pathNode.GetPath(), skipped})
+				}
+				return nil
+			})
 
-		var results []sortResult
-		visitor := func(prefix trie.Prefix, item trie.Item, skipped int) error {
-			list := item.([]indexedFile)
-			for _, file := range list {
-				results = append(results, sortResult{file.pathNode.GetPath(), skipped})
-			}
-			return nil
-		}
-		start := logStart("query")
-		indexTrie.VisitFuzzy(prefix, visitor)
-		logStop(start)
+		results = bySkipped(tempResults)
+	}
+	logStop(start)
 
+	if !req.Settings.NoSort {
 		start = logStart("sort")
 		if req.Settings.ReverseSort {
-			sort.Sort(bySkipped(results))
+			sort.Sort(results)
 		} else {
-			sort.Sort(sort.Reverse(bySkipped(results)))
+			sort.Sort(sort.Reverse(results))
 		}
 		logStop(start)
+	}
 
-		for _, result := range results {
-			req.ResponseChannel <- result.result
-		}
+	sendResults(results, req)
+}
+
+func sendResults(results resulter, req request.Request) {
+	maxResults := req.Settings.MaxResults
+	if maxResults == 0 || maxResults > results.Len() {
+		maxResults = results.Len()
+	}
+
+	var startIndex int
+
+	if req.Settings.ReverseSort {
+		startIndex = 0
+	} else {
+		startIndex = results.Len() - maxResults
+	}
+
+	for i := startIndex; i < startIndex+maxResults; i++ {
+		req.ResponseChannel <- results.Result(i)
 	}
 }
 
-func sendResults(channel chan string) trie.VisitorFunc {
-	return func(prefix trie.Prefix, item trie.Item) error {
-		list := item.([]indexedFile)
-		for _, file := range list {
-			channel <- file.pathNode.GetPath()
-		}
-		return nil
-	}
+func logStart(action string) time.Time {
+	log.Println("starting to", action)
+	return time.Now()
+}
+
+func logStop(start time.Time) {
+	log.Println("done in", time.Now().Sub(start))
 }

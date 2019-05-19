@@ -13,6 +13,8 @@ func main() {
 	noSortFlag := flag.Bool("nosort", false,
 		"don't sort the result set for performance gains when fuzzy searching")
 	reverseSortFlag := flag.Bool("r", false, "reverse the sort order")
+	maxResultsFlag := flag.Int("n", 250,
+		"maximum amount of results to display, set to 0 for unlimited results")
 
 	flag.Parse()
 
@@ -28,7 +30,9 @@ func main() {
 
 	query := flag.Arg(0)
 
-	options := []client.Option{}
+	options := []client.Option{
+		client.MaxResults(*maxResultsFlag),
+	}
 
 	if *fuzzyFlag {
 		options = append(options, client.Fuzzy)
