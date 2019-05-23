@@ -75,7 +75,7 @@ func queryIndex(req request.Request) {
 		results = byLength(tempResults)
 	case request.PathSearch:
 		tempResults := []sortResult{}
-		fileTree.VisitFuzzy(prefix,
+		fileTree.VisitFuzzy(prefix, true,
 			func(prefix trie.Prefix, item trie.Item, skipped int) error {
 				tempResults = append(tempResults,
 					sortResult{string(prefix), skipped})

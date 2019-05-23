@@ -160,6 +160,9 @@ func (t Node) walk(path string, visitor func(part string) error) error {
 	return nil
 }
 
+const upperBits = 0xFFFFFFC00
+const lowerBits = 0x3FFFFFF000000000
+
 func makePrefixMask(key string) uint64 {
 	var mask uint64 = 0
 	for _, b := range key {
@@ -181,6 +184,13 @@ func makePrefixMask(key string) uint64 {
 		}
 		mask |= uint64(1) << uint64(b)
 	}
+
+	return mask
+}
+
+func caseInsensitiveMask(mask uint64) uint64 {
+	mask |= (mask & upperBits) << uint64(26)
+	mask |= (mask & lowerBits) >> uint64(26)
 	return mask
 }
 
@@ -191,9 +201,12 @@ type potentialSubtree struct {
 	node    *Node
 }
 
-func (t Node) VisitFuzzy(bquery patricia.Prefix, visitor patricia.FuzzyVisitorFunc) error {
+func (t Node) VisitFuzzy(bquery patricia.Prefix,
+	caseInsensitive bool,
+	visitor patricia.FuzzyVisitorFunc) error {
 	var (
 		m          uint64
+		cmp        uint64
 		i          int
 		matchCount int
 		skipped    int
@@ -209,7 +222,7 @@ func (t Node) VisitFuzzy(bquery patricia.Prefix, visitor patricia.FuzzyVisitorFu
 
 		potential = potential[:i]
 
-		matchCount, skipped = fuzzyMatchCount(p.node.name, query[p.idx:], p.idx)
+		matchCount, skipped = fuzzyMatchCount(p.node.name, query[p.idx:], p.idx, caseInsensitive)
 		p.idx += matchCount
 
 		if p.idx != 0 {
@@ -235,7 +248,14 @@ func (t Node) VisitFuzzy(bquery patricia.Prefix, visitor patricia.FuzzyVisitorFu
 		}
 
 		m = makePrefixMask(query[p.idx:])
-		if (p.node.mask & m) != m {
+
+		if caseInsensitive {
+			cmp = caseInsensitiveMask(p.node.mask)
+		} else {
+			cmp = p.node.mask
+		}
+
+		if (cmp & m) != m {
 			continue
 		}
 
@@ -258,9 +278,12 @@ func (t Node) VisitFuzzy(bquery patricia.Prefix, visitor patricia.FuzzyVisitorFu
 	return nil
 }
 
-func fuzzyMatchCount(part, partialQuery string, idx int) (count, skipped int) {
+func fuzzyMatchCount(part, partialQuery string, idx int, caseInsensitive bool) (count, skipped int) {
+	if caseInsensitive {
+		part = strings.ToLower(part)
+		partialQuery = strings.ToLower(partialQuery)
+	}
 	for i := 0; i < len(part); i++ {
-
 		if part[i] != partialQuery[count] {
 			if count+idx > 0 {
 				skipped++
