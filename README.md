@@ -35,11 +35,20 @@ gosearch is still in early developement, but usable (need more testers). Things,
 * Integration with other tools (i.e. rofi)
 * Maybe a GUI
 
-Installing
-==========
+Installation
+============
 **Important:** gosearch requires a kernel of version >= 5.1 or [this patch](https://lkml.org/lkml/2019/3/1/400) applied to your current kernel. I have not applied the patch to older kernel versions and don't know if it works or how hard it is.
 
-To build the program you need a working Go installation and properly set `$GOPATH`.
+Installing via Package Manager
+------------------------------
+A gosearch package is available for the following distributions:
+* Arch Linux (AUR): [gosearch-git](https://aur.archlinux.org/packages/gosearch-git/)
+
+More to come!
+
+Installing manually
+-------------------
+To build the program you need a working Go installation (version > 1.11) and properly set `$GOPATH`.
 
 Clone the repo and install by running
 
