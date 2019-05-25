@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	trie "github.com/ozeidan/go-patricia/patricia"
+	trie "github.com/ozeidan/fuzzy-patricia/patricia"
 	"github.com/ozeidan/gosearch/internal/request"
 )
 

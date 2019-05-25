@@ -19,7 +19,7 @@ Performance
 -----------
 Since the filesystem change events sent by fanotify only report the parent directory of a created/deleted/moved file, the whole filesystem has to be indexed in a tree-like structure. This index is then used to compare the current directory contents to the last-known state and the created/deleted files are updated from the actual filename index.
 
-The filename index, which provides the fast searches on filename across the filesystem, is built using a patricia trie. For this purpose, a memory-optimized version of go-patricia was created, which can be found [here](https://github.com/ozeidan/go-patricia/) .
+The filename index, which provides the fast searches on filename across the filesystem, is built using a patricia trie. For this purpose, a memory-optimized version of go-patricia was created, which can be found [here](https://github.com/ozeidan/fuzzy-patricia/) .
 
 Nevertheless, on my system gosearch uses 250mb of memory and most fuzzy/substring queries are processed in less then 100ms. Prefix queries are processed in a matter of microseconds. These benchmarks were conducted on ~1.1 million indexed files and ~130 thousand directories, which amount to ~250GB of data. The indexing, which has to be run once everytime the system restarts, takes roughly 6 seconds.
 TODO: actual benchmarks

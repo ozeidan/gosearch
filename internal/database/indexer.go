@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/karrick/godirwalk"
-	trie "github.com/ozeidan/go-patricia/patricia"
+	trie "github.com/ozeidan/fuzzy-patricia/patricia"
 	"github.com/ozeidan/gosearch/internal/config"
 	"github.com/ozeidan/gosearch/internal/fanotify"
 	"github.com/ozeidan/gosearch/internal/request"
