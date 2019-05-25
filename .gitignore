@@ -1,5 +1,2 @@
-gosearch
-gosearchServer
-client
-server
-
+./gosearch
+./gosearchServer
