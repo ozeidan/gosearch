@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/karrick/godirwalk"
-	trie "github.com/ozeidan/fuzzy-patricia/patricia"
 	"github.com/ozeidan/gosearch/internal/config"
 	"github.com/ozeidan/gosearch/internal/fanotify"
 	"github.com/ozeidan/gosearch/internal/request"
 	"github.com/ozeidan/gosearch/pkg/tree"
+	trie "gopkg.in/ozeidan/fuzzy-patricia.v3/patricia"
 )
 
 // Start starts the indexing and listens for file changes and requests
@@ -44,7 +44,6 @@ type indexedFile struct {
 func initialIndex() {
 	indexTrie = trie.NewTrie()
 	fileTree = tree.New()
-	trie.SetUseSuperDenseChildLists(true)
 
 	log.Println("starting to create initial index")
 

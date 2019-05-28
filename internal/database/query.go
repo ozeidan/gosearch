@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	trie "github.com/ozeidan/fuzzy-patricia/patricia"
 	"github.com/ozeidan/gosearch/internal/request"
+	trie "gopkg.in/ozeidan/fuzzy-patricia.v3/patricia"
 )
 
 type resulter interface {
@@ -52,17 +52,20 @@ func queryIndex(req request.Request) {
 	start := logStart("query")
 	switch req.Settings.Action {
 	case request.PrefixSearch:
-		fallthrough
-	case request.SubStringSearch:
-		var visitFunc func(trie.Prefix, trie.VisitorFunc) error
-		if req.Settings.Action == request.PrefixSearch {
-			visitFunc = indexTrie.VisitSubtree
-		} else {
-			visitFunc = indexTrie.VisitSubstring
-		}
-
 		tempResults := byLength{}
-		visitFunc(prefix, func(prefix trie.Prefix, item trie.Item) error {
+		indexTrie.VisitSubtree(prefix, func(prefix trie.Prefix, item trie.Item) error {
+			list := item.([]indexedFile)
+			for _, file := range list {
+				tempResults = append(tempResults,
+					file.pathNode.GetPath())
+			}
+			return nil
+		})
+
+		results = byLength(tempResults)
+	case request.SubStringSearch:
+		tempResults := byLength{}
+		indexTrie.VisitSubstring(prefix, false, func(prefix trie.Prefix, item trie.Item) error {
 			list := item.([]indexedFile)
 			for _, file := range list {
 				tempResults = append(tempResults,
@@ -74,7 +77,7 @@ func queryIndex(req request.Request) {
 		results = byLength(tempResults)
 	case request.FuzzySearch:
 		tempResults := []sortResult{}
-		indexTrie.VisitFuzzy(prefix,
+		indexTrie.VisitFuzzy(prefix, false,
 			func(prefix trie.Prefix, item trie.Item, skipped int) error {
 				list := item.([]indexedFile)
 				for _, file := range list {
