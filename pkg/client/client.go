@@ -29,6 +29,10 @@ func ReverseSort(req *request.Request) {
 	req.Settings.ReverseSort = true
 }
 
+func CaseInsensitive(req *request.Request) {
+	req.Settings.CaseInsensitive = true
+}
+
 func MaxResults(max int) Option {
 	return func(req *request.Request) {
 		req.Settings.MaxResults = max

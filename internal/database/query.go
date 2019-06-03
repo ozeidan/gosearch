@@ -65,19 +65,20 @@ func queryIndex(req request.Request) {
 		results = byLength(tempResults)
 	case request.SubStringSearch:
 		tempResults := byLength{}
-		indexTrie.VisitSubstring(prefix, false, func(prefix trie.Prefix, item trie.Item) error {
-			list := item.([]indexedFile)
-			for _, file := range list {
-				tempResults = append(tempResults,
-					file.pathNode.GetPath())
-			}
-			return nil
-		})
+		indexTrie.VisitSubstring(prefix, req.Settings.CaseInsensitive,
+			func(prefix trie.Prefix, item trie.Item) error {
+				list := item.([]indexedFile)
+				for _, file := range list {
+					tempResults = append(tempResults,
+						file.pathNode.GetPath())
+				}
+				return nil
+			})
 
 		results = byLength(tempResults)
 	case request.FuzzySearch:
 		tempResults := []sortResult{}
-		indexTrie.VisitFuzzy(prefix, false,
+		indexTrie.VisitFuzzy(prefix, req.Settings.CaseInsensitive,
 			func(prefix trie.Prefix, item trie.Item, skipped int) error {
 				list := item.([]indexedFile)
 				for _, file := range list {

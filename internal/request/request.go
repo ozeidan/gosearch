@@ -35,14 +35,17 @@ type Request struct {
 	Done chan struct{} `json:"-"`
 }
 
+// TODO: remove double negations
 type Settings struct {
 	// Action describes the requested action
 	Action int `json:"action"`
 	// Maximal amount of results to be transmitted, 0 means unlimited
 	MaxResults int `json:"max_results"`
-	// Don't sort the results when fuzzy searching
-	NoSort      bool `json:"no_sort"`
-	ReverseSort bool `json:"reverse_sort"`
+	// Don't sort the query results when
+	NoSort bool `json:"no_sort"`
+	// ReverseSort sets the sort-order to ascending in length
+	ReverseSort     bool `json:"reverse_sort"`
+	CaseInsensitive bool `json:"case_insensitive"`
 }
 
 // ListenAndServe starts listening for and accepting requests
