@@ -119,7 +119,11 @@ func sendResults(results resulter, req request.Request) {
 	}
 
 	for i := startIndex; i < startIndex+maxResults; i++ {
-		req.ResponseChannel <- results.Result(i)
+		select {
+		case req.ResponseChannel <- results.Result(i):
+		case <-req.Done:
+			return
+		}
 	}
 }
 

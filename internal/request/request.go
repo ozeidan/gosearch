@@ -30,6 +30,9 @@ type Request struct {
 	// ResponseChannel is the channel
 	// on which the database will send back the results
 	ResponseChannel chan string `json:"-"`
+	// Done is used to signal to the database
+	// that no more results are needed
+	Done chan struct{} `json:"-"`
 }
 
 type Settings struct {
@@ -101,11 +104,13 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 	err := json.NewDecoder(c).Decode(&request)
 
 	if err != nil {
+		// TODO: send error back
 		log.Println("failed to decode request:", err)
 		return
 	}
 
 	request.ResponseChannel = make(chan string)
+	request.Done = make(chan struct{})
 	requestReceiver <- request
 
 	for response := range request.ResponseChannel {
@@ -116,6 +121,7 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 		}
 		if err != nil {
 			log.Println("failed to write to unix domain socket:", err)
+			request.Done <- struct{}{}
 			break
 		}
 
