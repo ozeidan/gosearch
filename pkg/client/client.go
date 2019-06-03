@@ -61,12 +61,12 @@ func SearchRequest(searchQuery string, options ...Option) (<-chan string, error)
 		defer c.Close()
 		reader := bufio.NewReader(c)
 		for {
-			bytes, err := reader.ReadBytes('\n')
+			line, err := reader.ReadString('\n')
 			if err != nil {
 				// TODO: handle this error
 				return
 			}
-			responseChan <- string(bytes)
+			responseChan <- line
 		}
 	}()
 
