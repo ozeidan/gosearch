@@ -115,13 +115,18 @@ func TestNode_DeleteAt(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			"working_test",
+			"working",
 			"/home/user/Documents",
 			false,
 		},
 		{
-			"not_working_test",
+			"file_not_found",
 			"/home/user/doesnotexist",
+			true,
+		},
+		{
+			"invalid_path",
+			"/home/user/invalid/path/err",
 			true,
 		},
 	}

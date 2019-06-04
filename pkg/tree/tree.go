@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ozeidan/go-patricia/patricia"
+	"gopkg.in/ozeidan/fuzzy-patricia.v3/patricia"
 )
 
 // Node is a node of a directory tree

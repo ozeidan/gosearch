@@ -14,6 +14,7 @@ func main() {
 	noSortFlag := flag.Bool("nosort", false,
 		"don't sort the result set for performance gains when fuzzy searching")
 	reverseSortFlag := flag.Bool("r", false, "reverse the sort order")
+	caseInsensitiveFlag := flag.Bool("c", false, "case-insensitive searching")
 	maxResultsFlag := flag.Int("n", 250,
 		"maximum amount of results to display, set to 0 for unlimited results")
 
@@ -49,6 +50,9 @@ func main() {
 	}
 	if *pathFlag {
 		options = append(options, client.PathSearch)
+	}
+	if *caseInsensitiveFlag {
+		options = append(options, client.CaseInsensitive)
 	}
 
 	responseChan, err := client.SearchRequest(query, options...)

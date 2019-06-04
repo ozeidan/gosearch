@@ -18,9 +18,6 @@ build-server:
 build-client:
 	cd $(GOBASE)/cmd/client; $(GOBUILD) -v -o $(GOBASE)/$(CLIENT_BINARY_NAME)
 
-install-client:
-	cd $(GOBASE)/cmd/client; $(GOBUILD) -v -o $(GOPATH)/bin/$(CLIENT_BINARY_NAME)
-
 build: build-server build-client
 
 test:
@@ -40,10 +37,11 @@ clean:
 deps:
 	$(GOGET)
 
-install: build-server install-client move
+install: build-server build-client move
 
 move:
 	sudo mv $(SERVER_BINARY_NAME) /usr/bin
+	sudo mv $(CLIENT_BINARY_NAME) /usr/bin
 	sudo cp $(SYSTEMD_SERVICE_FILE) /etc/systemd/system/
 	sudo systemctl daemon-reload
 	sudo systemctl enable gosearch

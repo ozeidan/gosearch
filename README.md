@@ -19,7 +19,7 @@ Performance
 -----------
 Since the filesystem change events sent by fanotify only report the parent directory of a created/deleted/moved file, the whole filesystem has to be indexed in a tree-like structure. This index is then used to compare the current directory contents to the last-known state and the created/deleted files are updated from the actual filename index.
 
-The filename index, which provides the fast searches on filename across the filesystem, is built using a patricia trie. For this purpose, a memory-optimized version of go-patricia was created, which can be found [here](https://github.com/ozeidan/go-patricia/) .
+The filename index, which provides the fast searches on filename across the filesystem, is built using a patricia trie. For this purpose, a memory-optimized version of go-patricia was created, which can be found [here](https://github.com/ozeidan/fuzzy-patricia/) .
 
 Nevertheless, on my system gosearch uses 250mb of memory and most fuzzy/substring queries are processed in less then 100ms. Prefix queries are processed in a matter of microseconds. These benchmarks were conducted on ~1.1 million indexed files and ~130 thousand directories, which amount to ~250GB of data. The indexing, which has to be run once everytime the system restarts, takes roughly 6 seconds.
 TODO: actual benchmarks
@@ -35,11 +35,20 @@ gosearch is still in early developement, but usable (need more testers). Things,
 * Integration with other tools (i.e. rofi)
 * Maybe a GUI
 
-Installing
-==========
+Installation
+============
 **Important:** gosearch requires a kernel of version >= 5.1 or [this patch](https://lkml.org/lkml/2019/3/1/400) applied to your current kernel. I have not applied the patch to older kernel versions and don't know if it works or how hard it is.
 
-To build the program you need a working Go installation and properly set `$GOPATH`.
+Installing via Package Manager
+------------------------------
+A gosearch package is available for the following distributions:
+* Arch Linux (AUR): [gosearch-git](https://aur.archlinux.org/packages/gosearch-git/)
+
+More to come!
+
+Installing manually
+-------------------
+To build the program you need a working Go installation (version > 1.11) and properly set `$GOPATH`.
 
 Clone the repo and install by running
 

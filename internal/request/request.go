@@ -32,16 +32,22 @@ type Request struct {
 	// ResponseChannel is the channel
 	// on which the database will send back the results
 	ResponseChannel chan string `json:"-"`
+	// Done is used to signal to the database
+	// that no more results are needed
+	Done chan struct{} `json:"-"`
 }
 
+// TODO: remove double negations
 type Settings struct {
 	// Action describes the requested action
 	Action int `json:"action"`
 	// Maximal amount of results to be transmitted, 0 means unlimited
 	MaxResults int `json:"max_results"`
-	// Don't sort the results when fuzzy searching
-	NoSort      bool `json:"no_sort"`
-	ReverseSort bool `json:"reverse_sort"`
+	// Don't sort the query results when
+	NoSort bool `json:"no_sort"`
+	// ReverseSort sets the sort-order to ascending in length
+	ReverseSort     bool `json:"reverse_sort"`
+	CaseInsensitive bool `json:"case_insensitive"`
 }
 
 // ListenAndServe starts listening for and accepting requests
@@ -103,11 +109,13 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 	err := json.NewDecoder(c).Decode(&request)
 
 	if err != nil {
+		// TODO: send error back
 		log.Println("failed to decode request:", err)
 		return
 	}
 
 	request.ResponseChannel = make(chan string)
+	request.Done = make(chan struct{})
 	requestReceiver <- request
 
 	for response := range request.ResponseChannel {
@@ -118,6 +126,7 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 		}
 		if err != nil {
 			log.Println("failed to write to unix domain socket:", err)
+			request.Done <- struct{}{}
 			break
 		}
 
