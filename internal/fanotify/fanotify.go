@@ -3,6 +3,7 @@ package fanotify
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -91,84 +92,90 @@ func Listen(changeReceiver chan<- FileChange) {
 	f := os.NewFile(uintptr(fan), "")
 	r := bufio.NewReader(f)
 
-	metaBuff := make([]byte, 24)
-
 	for {
-		n, err := r.Read(metaBuff)
-		if err != nil {
-			continue
-		}
+		readEvent(r, changeReceiver)
+	}
+}
 
-		if n < 0 || n > 24 {
-			continue
-		}
+var metaBuff = make([]byte, 24)
 
-		meta := *((*unix.FanotifyEventMetadata)(unsafe.Pointer(&metaBuff[0])))
-		bytesLeft := int(meta.Event_len - uint32(meta.Metadata_len))
-		infoBuff := make([]byte, bytesLeft)
-		n, err = r.Read(infoBuff)
-		if err != nil {
-			continue
-		}
+func readEvent(r io.Reader, changeReceiver chan<- FileChange) {
+	n, err := r.Read(metaBuff)
+	if err != nil {
+		return
+	}
 
-		if n < 0 || n > bytesLeft {
-			continue
-		}
+	if n < 0 || n > 24 {
+		return
+	}
 
-		info := *((*fanotifyEventInfoFid)(unsafe.Pointer(&infoBuff[0])))
+	meta := *((*unix.FanotifyEventMetadata)(unsafe.Pointer(&metaBuff[0])))
+	bytesLeft := int(meta.Event_len - uint32(meta.Metadata_len))
+	infoBuff := make([]byte, bytesLeft)
+	n, err = r.Read(infoBuff)
+	if err != nil {
+		return
+	}
 
-		if info.hdr.infoType != 1 { // TODO: properly define constant
-			continue
-		}
+	if n < 0 || n > bytesLeft {
+		return
+	}
 
-		handleStart := uint32(unsafe.Sizeof(info))
-		handleLen := info.eventFid.fileHandle.handleBytes
-		handleBytes := infoBuff[handleStart : handleStart+handleLen]
-		unixFileHandle := unix.NewFileHandle(info.eventFid.fileHandle.handleType, handleBytes)
+	info := *((*fanotifyEventInfoFid)(unsafe.Pointer(&infoBuff[0])))
 
-		fd, err := unix.OpenByHandleAt(atFDCWD, unixFileHandle, 0)
-		if err != nil {
-			log.Println("could not call OpenByHandleAt:", err)
-			continue
-		}
+	if info.hdr.infoType != 1 { // TODO: properly define constant
+		return
+	}
 
-		sym := fmt.Sprintf("/proc/self/fd/%d", fd)
-		path := make([]byte, 200)
-		pathLength, err := unix.Readlink(sym, path)
+	handleStart := uint32(unsafe.Sizeof(info))
+	handleLen := info.eventFid.fileHandle.handleBytes
+	handleBytes := infoBuff[handleStart : handleStart+handleLen]
+	unixFileHandle := unix.NewFileHandle(info.eventFid.fileHandle.handleType, handleBytes)
 
-		if err != nil {
-			log.Println("could not call Readlink:", err)
-			continue
-		}
-		path = path[:pathLength]
-		log.Println("received event, path:", string(path),
-			"flags:", maskToString(meta.Mask))
-		if config.IsPathFiltered(string(path)) {
-			continue
-		}
+	fd, err := unix.OpenByHandleAt(atFDCWD, unixFileHandle, 0)
+	if err != nil {
+		log.Println("could not call OpenByHandleAt:", err)
+		return
+	}
 
-		changeType := 0
-		if meta.Mask&unix.IN_CREATE > 0 ||
-			meta.Mask&unix.IN_MOVED_TO > 0 {
-			changeType = Creation
-		}
-		if meta.Mask&unix.IN_DELETE > 0 ||
-			meta.Mask&unix.IN_MOVED_FROM > 0 {
-			changeType = Deletion
-		}
-
-		change := FileChange{
-			string(path),
-			changeType,
-		}
-
-		changeReceiver <- change
-
+	defer func() {
 		err = syscall.Close(fd)
 		if err != nil {
 			log.Println("warning: couldn't close file descriptor", err)
 		}
+	}()
+
+	sym := fmt.Sprintf("/proc/self/fd/%d", fd)
+	path := make([]byte, 200)
+	pathLength, err := unix.Readlink(sym, path)
+
+	if err != nil {
+		log.Println("could not call Readlink:", err)
+		return
 	}
+	path = path[:pathLength]
+	log.Println("received event, path:", string(path),
+		"flags:", maskToString(meta.Mask))
+	if config.IsPathFiltered(string(path)) {
+		return
+	}
+
+	changeType := 0
+	if meta.Mask&unix.IN_CREATE > 0 ||
+		meta.Mask&unix.IN_MOVED_TO > 0 {
+		changeType = Creation
+	}
+	if meta.Mask&unix.IN_DELETE > 0 ||
+		meta.Mask&unix.IN_MOVED_FROM > 0 {
+		changeType = Deletion
+	}
+
+	change := FileChange{
+		string(path),
+		changeType,
+	}
+
+	changeReceiver <- change
 }
 
 func maskToString(mask uint64) string {
