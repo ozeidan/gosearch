@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"syscall"
 	"unsafe"
 
 	"github.com/ozeidan/gosearch/internal/config"
@@ -160,7 +161,13 @@ func Listen(changeReceiver chan<- FileChange) {
 			string(path),
 			changeType,
 		}
+
 		changeReceiver <- change
+
+		err = syscall.Close(fd)
+		if err != nil {
+			log.Println("warning: couldn't close file descriptor", err)
+		}
 	}
 }
 
