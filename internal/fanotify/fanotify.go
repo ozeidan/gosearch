@@ -154,11 +154,11 @@ func readEvent(r io.Reader, changeReceiver chan<- FileChange) {
 		return
 	}
 	path = path[:pathLength]
-	log.Println("received event, path:", string(path),
-		"flags:", maskToString(meta.Mask))
 	if config.IsPathFiltered(string(path)) {
 		return
 	}
+	log.Println("received event, path:", string(path),
+		"flags:", maskToString(meta.Mask))
 
 	changeType := 0
 	if meta.Mask&unix.IN_CREATE > 0 ||
