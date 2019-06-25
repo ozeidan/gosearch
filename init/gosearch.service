@@ -1,5 +1,6 @@
 [Unit]
 Description=gosearch file indexing server
+ConditionKernelVersion=>=5.1
 
 [Service]
 Type=simple
