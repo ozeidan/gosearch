@@ -116,6 +116,11 @@ func serve(c net.Conn, requestReceiver chan<- Request) {
 	request.Done = make(chan struct{})
 	requestReceiver <- request
 
+	go func() {
+		c.Read(make([]byte, 1))
+		request.Done <- struct{}{}
+	}()
+
 	for response := range request.ResponseChannel {
 		responseBytes := []byte(response + "\n")
 		n, err := c.Write(responseBytes)

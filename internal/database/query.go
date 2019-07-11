@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"log"
 	"sort"
 	"time"
@@ -48,49 +49,55 @@ func queryIndex(req request.Request) {
 	prefix := trie.Prefix(req.Query)
 
 	var results resulter
+	var err error
 
 	start := logStart("query")
 	switch req.Settings.Action {
 	case request.PrefixSearch:
 		tempResults := byLength{}
-		indexTrie.VisitSubtree(prefix, func(prefix trie.Prefix, item trie.Item) error {
+		err = indexTrie.VisitSubtree(prefix, func(prefix trie.Prefix, item trie.Item) error {
 			list := item.([]indexedFile)
 			for _, file := range list {
 				tempResults = append(tempResults,
 					file.pathNode.GetPath())
 			}
-			return nil
+			return checkDone(req)
 		})
 
 		results = byLength(tempResults)
 	case request.SubStringSearch:
 		tempResults := byLength{}
-		indexTrie.VisitSubstring(prefix, req.Settings.CaseInsensitive,
+		err = indexTrie.VisitSubstring(prefix, req.Settings.CaseInsensitive,
 			func(prefix trie.Prefix, item trie.Item) error {
 				list := item.([]indexedFile)
 				for _, file := range list {
 					tempResults = append(tempResults,
 						file.pathNode.GetPath())
 				}
-				return nil
+				return checkDone(req)
 			})
 
 		results = byLength(tempResults)
 	case request.FuzzySearch:
 		tempResults := []sortResult{}
-		indexTrie.VisitFuzzy(prefix, req.Settings.CaseInsensitive,
+		err = indexTrie.VisitFuzzy(prefix, req.Settings.CaseInsensitive,
 			func(prefix trie.Prefix, item trie.Item, skipped int) error {
 				list := item.([]indexedFile)
 				for _, file := range list {
 					tempResults = append(tempResults,
 						sortResult{file.pathNode.GetPath(), skipped})
 				}
-				return nil
+				return checkDone(req)
 			})
 
 		results = bySkipped(tempResults)
 	}
 	logStop(start)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	if !req.Settings.NoSort {
 		start = logStart("sort")
@@ -125,6 +132,15 @@ func sendResults(results resulter, req request.Request) {
 		case <-req.Done:
 			return
 		}
+	}
+}
+
+func checkDone(req request.Request) error {
+	select {
+	case <-req.Done:
+		return errors.New("request aborted by client")
+	default:
+		return nil
 	}
 }
 

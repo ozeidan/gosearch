@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 
 	"github.com/ozeidan/gosearch/pkg/client"
 )
@@ -53,13 +55,23 @@ func main() {
 
 	responseChan, err := client.SearchRequest(query, options...)
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
 	if err == client.ErrConnectionFailed {
 		fmt.Println(err)
 		fmt.Println("is the server running?")
 		return
 	}
 
-	for response := range responseChan {
-		fmt.Print(response)
+	for {
+		select {
+		case <-c:
+			return
+		case response, ok := <-responseChan:
+			if !ok {
+				return
+			}
+			fmt.Print(response)
+		}
 	}
 }
