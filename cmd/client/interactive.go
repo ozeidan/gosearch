@@ -94,9 +94,11 @@ func eventLoop() {
 			fallthrough
 		case termbox.KeyBackspace2:
 			deleteChar(1)
+			runQuery()
 			renderQuery()
 		case termbox.KeyCtrlW:
 			deleteLastWord()
+			runQuery()
 			renderQuery()
 		case termbox.KeySpace:
 			event.Ch = ' '
@@ -107,9 +109,7 @@ func eventLoop() {
 			}
 
 			setChar(event.Ch)
-			if len(current.query) > 3 {
-				runQuery()
-			}
+			runQuery()
 			renderQuery()
 		}
 
@@ -126,34 +126,60 @@ func setSearchMode(opt *booleanOpt) {
 		}
 	}
 	renderSettings()
+	runQuery()
 }
 
+var lastDone chan struct{}
+
 func runQuery() {
+	if lastDone != nil {
+		close(lastDone)
+		lastDone = nil
+	}
+
+	current.results = []string{}
 	if current.query == "" {
+		renderResults()
+		termbox.Sync()
 		return
 	}
 
-	opts := []client.Option{client.ReverseSort}
+	done := make(chan struct{})
+	lastDone = done
+	opts := []client.Option{client.ReverseSort, client.MaxResults(100)}
 	for _, opt := range searchOptions {
 		if opt.active {
 			opts = append(opts, opt.option)
 		}
 	}
-	current.results = current.results[:0]
 
-	go func() {
-		responseChan, err := client.SearchRequest(current.query, opts...)
-		if err != nil {
-			fmt.Printf("err = %+v\n", err)
-			return
+	responseChan, err := client.SearchRequest(current.query, done, opts...)
+	if err != nil {
+		current.results = append(current.results, err.Error())
+	}
+
+	receive := func(response <-chan string, done <-chan struct{}) {
+		results := []string{}
+
+	OuterLoop:
+		for {
+			select {
+			case line, ok := <-response:
+				if !ok {
+					break OuterLoop
+				}
+				results = append(results, line)
+			case <-done:
+				return
+			}
 		}
 
-		for response := range responseChan {
-			current.results = append(current.results, response)
-		}
+		current.results = results
 		renderResults()
 		termbox.Sync()
-	}()
+	}
+
+	go receive(responseChan, done)
 }
 
 func deleteLastWord() {

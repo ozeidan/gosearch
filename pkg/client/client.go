@@ -20,6 +20,9 @@ func Fuzzy(req *request.Request) {
 func PrefixSearch(req *request.Request) {
 	req.Settings.Action = request.PrefixSearch
 }
+func SubStringSearch(req *request.Request) {
+	req.Settings.Action = request.SubStringSearch
+}
 
 func NoSort(req *request.Request) {
 	req.Settings.NoSort = true
@@ -39,8 +42,9 @@ func MaxResults(max int) Option {
 	}
 }
 
-func SearchRequest(searchQuery string, options ...Option) (<-chan string, error) {
+func SearchRequest(searchQuery string, done <-chan struct{}, options ...Option) (<-chan string, error) {
 	responseChan := make(chan string, 0)
+	lines := make(chan string)
 
 	req := new(request.Request)
 	req.Query = searchQuery
@@ -60,17 +64,34 @@ func SearchRequest(searchQuery string, options ...Option) (<-chan string, error)
 		return nil, err
 	}
 
+	reader := bufio.NewReader(c)
+
 	go func() {
-		defer close(responseChan)
-		defer c.Close()
-		reader := bufio.NewReader(c)
+		defer close(lines)
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
-				// TODO: handle this error
 				return
 			}
-			responseChan <- line
+			lines <- line
+		}
+	}()
+
+	go func() {
+		defer close(responseChan)
+		defer c.Close()
+
+		for {
+			select {
+			case line, ok := <-lines:
+				if !ok {
+					return
+				}
+
+				responseChan <- line
+			case <-done:
+				return
+			}
 		}
 	}()
 
